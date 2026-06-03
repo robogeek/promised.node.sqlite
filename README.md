@@ -1,11 +1,19 @@
-# Promised SQLite
+# Promised node:sqlite
 
 ## Introduction
-You can use async/await for sqlite3.
+You can use async/await for node:sqlite.
+
+This package is a fork of [promised.sqlite](https://www.npmjs.com/package/promised.sqlite).  Rationale:
+
+* The [sqlite3](https://www.npmjs.com/package/sqlite3) package has been marked DEPRECATED and UNMAINTAINED
+* The Node.js platform now has built-in [node:sqlite](https://nodejs.org/api/sqlite.html) which is just as synchronous as the old sqlite3 package
+* Some people will want to use asynchronous functions on top of node:sqlite
+
+Simple.. fork `promised.sqlite` to use `node:sqlite`.
 
 ## Install
 ```shell
-> npm install promised.sqlite
+> npm install promised.node.sqlite
 ```
 
 ## Usage
@@ -14,7 +22,7 @@ You can use async/await for sqlite3.
 ```js
 import {
   open,
-} from 'promised.sqlite'
+} from 'promised.node.sqlite'
 
 // open the database
 const db = await open(':memory:')
@@ -30,7 +38,7 @@ console.log('Close the database connection.')
 import {
   open,
   OPEN_READWRITE,
-} from 'promised.sqlite'
+} from 'promised.node.sqlite'
 
 // open the database
 const db = await open('./assets/chinook.db', OPEN_READWRITE)
@@ -49,7 +57,7 @@ await db.close()
 ```js
 import {
   open,
-} from 'promised.sqlite'
+} from 'promised.node.sqlite'
 
 const sql = `SELECT DISTINCT Name name FROM playlists
               ORDER BY name`
@@ -71,7 +79,7 @@ await db.close()
 ```js
 import {
   open,
-} from 'promised.sqlite'
+} from 'promised.node.sqlite'
 
 // open the database
 const db = await open('./assets/chinook.db')
@@ -95,7 +103,7 @@ await db.close()
 ```js
 import {
   open,
-} from 'promised.sqlite'
+} from 'promised.node.sqlite'
 
 // open the database
 const db = await open('./assets/chinook.db')
@@ -119,7 +127,7 @@ await db.close()
 ```js
 import {
   open,
-} from 'promised.sqlite'
+} from 'promised.node.sqlite'
 
 const db = await open(':memory:')
 
@@ -138,7 +146,7 @@ await db.close()
 ```js
 import {
   open,
-} from 'promised.sqlite'
+} from 'promised.node.sqlite'
 
 // open the database connection
 const db = await open(':memory:')
@@ -163,7 +171,7 @@ db.close()
 ```js
 import {
   open,
-} from 'promised.sqlite'
+} from 'promised.node.sqlite'
 
 // open the database connection
 const db = await open(':memory:')
@@ -199,7 +207,7 @@ await db.close()
 ```js
 import {
   open,
-} from 'promised.sqlite'
+} from 'promised.node.sqlite'
 
 // open the database connection
 const db = await open(':memory:')
