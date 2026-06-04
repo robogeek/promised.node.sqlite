@@ -1,22 +1,18 @@
 {
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
-    "lib": ["es2021", "dom"],
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "target": "es2021",
+    "lib": ["esnext", "dom"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "esnext",
     "outDir": "dist.test",
     "sourceMap": true,
     "declaration": true,
     "noImplicitAny": false,
     "experimentalDecorators": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
-  "include": [
-    "test/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    ".git"
-  ]
+  "include": ["test/**/*"],
+  "exclude": ["node_modules", ".git"]
 }

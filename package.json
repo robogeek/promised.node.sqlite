@@ -1,6 +1,7 @@
 {
   "name": "promised.node.sqlite",
   "version": "0.2.0",
+  "type": "module",
   "description": "You can use async/await for node:sqlite",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -46,4 +47,5 @@
       "dist.test/test/**/*.spec.js"
     ]
   }
+}
 }
