@@ -27,10 +27,10 @@
   "scripts": {
     "name": "echo $npm_package_name",
     "start": "node .",
-    "build.tsc": "tsc && bin/copy \"src/**/!(*.ts)\" \"dist\" \"**/node_modules/**\" \"**/.DS_Store\"",
+    "build": "tsc && tscp",
+    "watch": "tsc -w & tscp -w",
     "clean": "rimraf dist",
-    "build.util": "tsc --outDir utils utils/index.ts",
-    "build.test": "tsc -p tsconfig.test.json && bin/copy \"src/**/!(*.ts)\" \"dist.test/src\" \"**/node_modules/**\" \"**/.DS_Store\"",
+    "build.test": "tsc -p tsconfig.test.json && tscp",
     "test": "npm run build.test && ava -v",
     "test.watch": "npm run build.test && ava --watch",
     "clean.test": "rimraf dist.test"
@@ -38,7 +38,8 @@
   "devDependencies": {
     "ava": "^3.15.0",
     "rimraf": "^3.0.2",
-    "typescript": "^6.x"
+    "typescript": "^6.x",
+    "typescript-cp": "^1.0.3"
   },
   "ava": {
     "files": [
