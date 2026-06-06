@@ -1,178 +1,773 @@
-import {
-    Database as DB,
-    OPEN_READONLY,
-    OPEN_READWRITE,
-    OPEN_CREATE,
-    OPEN_SHAREDCACHE,
-    OPEN_PRIVATECACHE,
-    OPEN_URI,
-} from 'node:sqlite';
+/**
+ *
+ * Copyright 2025 David Herron
+ *
+ * This file is part of AkashCMS (http://akashacms.com/).
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  the limitations under the License.
+ */
+
+/**
+ * Async wrapper around node:sqlite (DatabaseSync)
+ * 
+ * This module provides a promise-based API wrapper around Node.js's
+ * built-in synchronous sqlite module. It mimics the API of promised-sqlite3
+ * to allow for drop-in replacement.
+ * 
+ * The wrapper uses setImmediate() to yield control to the event loop,
+ * preventing blocking during database operations.
+ */
+
+import { DatabaseSync, StatementSync, constants } from 'node:sqlite';
 
 
-export {
-    OPEN_READONLY,
-    OPEN_READWRITE,
-    OPEN_CREATE,
-    OPEN_SHAREDCACHE,
-    OPEN_PRIVATECACHE,
-    OPEN_URI,
-};
+export const OPEN_READONLY = 1;
+export const OPEN_READWRITE = 2;
+export const OPEN_CREATE = 3;
+export const OPEN_SHAREDCACHE = 4;
+export const OPEN_PRIVATECACHE = 5;
+export const OPEN_URI = 6;
 
+
+/**
+ * Options for opening a database connection
+ */
+export interface DatabaseOptions {
+    /**
+     * If true, the database is opened in read-only mode
+     */
+    readOnly?: boolean;
+    
+    /**
+     * If true, foreign key constraints are enabled
+     */
+    enableForeignKeyConstraints?: boolean;
+    
+    /**
+     * If true, allows loading SQLite extensions
+     */
+    allowExtension?: boolean;
+    
+    /**
+     * Busy timeout in milliseconds
+     */
+    timeout?: number;
+    
+    /**
+     * If true, integer fields are read as BigInts
+     */
+    readBigInts?: boolean;
+    
+    /**
+     * If true, query results are returned as arrays
+     */
+    returnArrays?: boolean;
+    
+    /**
+     * If true, allows binding named parameters without prefix
+     */
+    allowBareNamedParameters?: boolean;
+    
+    /**
+     * If true, unknown named parameters are ignored
+     */
+    allowUnknownNamedParameters?: boolean;
+}
+
+/**
+ * Result of a run operation
+ */
 export interface RunResult {
-    lastID: number;
+    /**
+     * Number of rows changed
+     */
     changes: number;
+    
+    /**
+     * Last inserted row ID
+     */
+    lastInsertRowid: number;
 }
 
 
-export function open(filename: string): Promise<Database>
-export function open(filename: string, mode: number): Promise<Database>
-export function open(filename: string, mode?: number): Promise<Database> {
-    const promised: Promise<Database> = (mode === undefined)
-        ? new Promise((resolve, reject) => {
-            const db = new DB(filename, err => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(new Database(db));
-            });
-        })
-        : new Promise((resolve, reject) => {
-            const db = new DB(filename, mode, err => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(new Database(db));
-            });
-        });
-    return promised;
+export function open(filename: string): Promise<AsyncDatabase>
+export function open(filename: string, mode: number): Promise<AsyncDatabase>
+export function open(filename: string, mode?: number): Promise<AsyncDatabase> {
+    return new Promise((resolve) => {
+        const options = <DatabaseOptions>{
+            readly: typeof mode !== 'undefined' && mode === OPEN_READONLY
+        };
+        const db = AsyncDatabase.open(filename, options); // new DatabaseSync(filename, options);
+        resolve(db);
+    });
 }
 
 
+/**
+ * A thin wrapper around DatabaseSync that exposes an async API.
+ * Compatible with promised-sqlite3's AsyncDatabase interface.
+ */
+export class AsyncDatabase {
+    #db: DatabaseSync;
+    #stmtCache: Map<string, {
+        sync: StatementSync;
+        async: AsyncStatement
+    }>;
+    #enableCache: boolean;
 
-export class Database {
-    constructor(protected readonly db: DB) {}
+    /**
+     * Create a new AsyncDatabase from a DatabaseSync object.
+     *
+     * @see Use AsyncDatabase.open() to create and open the database with the async API.
+     *
+     * @param db - The DatabaseSync object.
+     * @param enableCache - If true, prepared statements are cached (default: true)
+     */
+    constructor(db: DatabaseSync, enableCache: boolean = true) {
+        this.#db = db;
+        this.#stmtCache = new Map();
+        this.#enableCache = enableCache;
+    }
 
-    close(): Promise<void> {
+    /**
+     * @returns The inner DatabaseSync object for direct access (e.g., for extension loading)
+     */
+    get inner(): DatabaseSync {
+        return this.#db;
+    }
+
+    /**
+     * Returns a new AsyncDatabase object and automatically opens the database.
+     *
+     * @param filename - The filename or ':memory:' for in-mutable database
+     * @param options - Database options
+     */
+    static async open(
+        filename: string,
+        options?: DatabaseOptions
+    ): Promise<AsyncDatabase> {
         return new Promise((resolve, reject) => {
-            this.db.close(err => {
-                if (err) {
+            setImmediate(() => {
+                try {
+                    const dbOptions: any = {
+                        open: true,
+                        readOnly: options?.readOnly ?? false,
+                        enableForeignKeyConstraints: options?.enableForeignKeyConstraints ?? true,
+                        allowExtension: options?.allowExtension ?? false,
+                        timeout: options?.timeout ?? 0,
+                        readBigInts: options?.readBigInts ?? false,
+                        returnArrays: options?.returnArrays ?? false,
+                        allowBareNamedParameters: options?.allowBareNamedParameters ?? true,
+                        allowUnknownNamedParameters: options?.allowUnknownNamedParameters ?? false,
+                    };
+
+                    const db = new DatabaseSync(filename, dbOptions);
+                    resolve(new AsyncDatabase(db));
+                } catch (err) {
                     reject(err);
-                    return;
                 }
             });
-            resolve();
         });
     }
 
-    each(sql: string): {
-        [Symbol.asyncIterator](): {
-            next(): Promise<{value: any, done: boolean}>
-        }
+    /**
+     * Close the database.
+     */
+    async close(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            setImmediate(() => {
+                try {
+                    // Clear statement cache
+                    this.#stmtCache.clear();
+                    this.#db.close();
+                    resolve();
+                } catch (err: any) {
+                    console.error(err.toString());
+                    reject(err);
+                }
+            });
+        });
     }
-    each(sql: string, params: any): {
-        [Symbol.asyncIterator](): {
-            next(): Promise<{value: any, done: boolean}>
-        }
-    }
-    each(sql: string, params?: any): {
-        [Symbol.asyncIterator](): {
-            next(): Promise<{value: any, done: boolean}>
-        }
-    } {
-        let resolve: ({value: any, done: boolean}) => void = null;
-        let reject: (reason?: any) => void = null;
-        const cb = (err, row) => {
-            if (err) {
-                reject(err);
-                return;
+
+    /**
+     * Get or create a prepared statement from cache
+     */
+    #getStatement(sql: string): AsyncStatement {
+        if (this.#enableCache) {
+            let cached = this.#stmtCache.get(sql);
+            if (!cached) {
+                const sync = this.#db.prepare(sql);
+                const async = new AsyncStatement(sync);
+                cached = { sync, async };
+                this.#stmtCache.set(sql, cached);
             }
-            resolve({value: row, done: false});
-        };
-        const complete = (err, count) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            resolve({value: count, done: true});
-        };
-        if (params === undefined) {
-            this.db.each(sql, cb, complete);
+            return cached.async;
         } else {
-            this.db.each(sql, params, cb, complete);
+            return new AsyncStatement(this.#db.prepare(sql));
         }
-        return {
-            [Symbol.asyncIterator]() {
-                return {
-                    next() {
-                        return new Promise((res, rej) => {
-                            resolve = res;
-                            reject = rej;
-                        });
+    }
+
+    /**
+     * Normalize parameters for binding
+     * If single object/array, use as-is for named/positional parameters
+     * If multiple args, use as positional array
+     * 
+     * Converts undefined values to null as node:sqlite doesn't accept undefined
+     */
+    #normalizeParams(params: unknown[] | undefined): any {
+        if (typeof params === 'undefined' || params.length === 0) {
+            return undefined;
+        }
+        
+        const normalized = params.length === 1 ? params[0] : params;
+        
+        // Convert undefined to null for node:sqlite compatibility
+        if (typeof normalized === 'object' && normalized !== null) {
+            if (Array.isArray(normalized)) {
+                return normalized.map(v => v === undefined ? null : v);
+            } else {
+                const result: any = {};
+                for (const [key, value] of Object.entries(normalized)) {
+                    result[key] = value === undefined ? null : value;
+                }
+                return result;
+            }
+        }
+        
+        return normalized;
+    }
+
+    /**
+     * Runs the SQL query with the specified parameters.
+     * 
+     * For compatibility with the old sqlite3 package, the
+     * params must be supplied in one of three ways:
+     * 
+     * // Directly in the function arguments.
+     * db.run("UPDATE tbl SET name = ? WHERE id = ?", "bar", 2);
+     * // As an array.
+     * db.run("UPDATE tbl SET name = ? WHERE id = ?", [ "bar", 2 ]);
+     * // As an object with named parameters.
+     * db.run("UPDATE tbl SET name = $name WHERE id = $id", {
+     *    $id: 2,
+     *    $name: "bar"
+     * });
+     *
+     * @param sql - The SQL statement
+     * @param params - Parameters for the statement
+     */
+    async run(sql: string, ...params: unknown[]): Promise<RunResult> {
+        return new Promise((resolve, reject) => {
+            setImmediate(async () => {
+                try {
+                    const asyncStmt = this.#getStatement(sql);
+                    console.log(`run ${sql} params=`, params);
+                    const p = this.#normalizeParams(params);
+                    console.log(`run ${sql}`, p);
+
+                    // let result;
+                    // if (typeof p === 'undefined') {
+                    //     result = await asyncStmt.run();
+                    // } else if (Array.isArray(p)) {
+                    //     result = await asyncStmt.run(...p);
+                    // } else  {
+                    //     result = await asyncStmt.run(p);
+                    // }
+                    const result = p !== undefined
+                        ? await asyncStmt.run(...p)
+                        : await asyncStmt.run();
+                    
+                    resolve({
+                        changes: typeof result.changes === 'bigint' 
+                            ? Number(result.changes) 
+                            : result.changes,
+                        lastInsertRowid: typeof result.lastInsertRowid === 'bigint' 
+                            ? Number(result.lastInsertRowid) 
+                            : result.lastInsertRowid
+                    });
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    /**
+     * Runs the SQL query and returns the first result row.
+     *
+     * For compatibility with the old sqlite3 package, the
+     * params must be supplied in one of three ways:
+     * 
+     * // Directly in the function arguments.
+     * db.get("SELECT name FROM tbl WHERE id = ?", 2);
+     * // As an array.
+     * db.get("SELECT name FROM tbl WHERE id = ?", [ 2 ]);
+     * // As an object with named parameters.
+     * db.get("SELECT name FROM tbl WHERE id = $id", {
+     *    $id: 2
+     * });
+     *
+     * @param sql - The SQL statement
+     * @param params - Parameters for the statement
+     */
+    async get<T = any>(sql: string, ...params: unknown[]): Promise<T | undefined> {
+        return new Promise((resolve, reject) => {
+            setImmediate(() => {
+                try {
+                    const asyncStmt = this.#getStatement(sql);
+                    const p = this.#normalizeParams(params);
+                    const result = p !== undefined
+                        ? asyncStmt.get(p)
+                        : asyncStmt.get();
+                    resolve(result as T | undefined);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    /**
+     * Runs the SQL query and returns all result rows.
+     *
+     * For compatibility with the old sqlite3 package, the
+     * params must be supplied in one of three ways:
+     * 
+     * // Directly in the function arguments.
+     * db.all("SELECT name FROM tbl WHERE id = ?", 2);
+     * // As an array.
+     * db.all("SELECT name FROM tbl WHERE id = ?", [ 2 ]);
+     * // As an object with named parameters.
+     * db.all("SELECT name FROM tbl WHERE id = $id", {
+     *    $id: 2
+     * });
+     *
+     * @param sql - The SQL statement
+     * @param params - Parameters for the statement
+     */
+    async all<T = any>(sql: string, ...params: unknown[]): Promise<T[]> {
+        return new Promise((resolve, reject) => {
+            setImmediate(() => {
+                try {
+                    const asyncStmt = this.#getStatement(sql);
+                    const p = this.#normalizeParams(params);
+                    const result = p !== undefined
+                        ? asyncStmt.all(p)
+                        : asyncStmt.all();
+                    resolve((result as unknown) as T[]);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    /**
+     * Runs the SQL query with the specified parameters and calls the callback once for each result row.
+     * 
+     * Returns the number of rows processed.
+     *
+     * For compatibility with the old sqlite3 package, the
+     * params must be supplied in one of three ways:
+     * 
+     * // Directly in the function arguments.
+     * db.each("SELECT name FROM tbl WHERE id = ?", 2,
+     *    function cb(row: any) {
+     *        // Act on row
+     *    }
+     * );
+     * // As an array.
+     * db.each("SELECT name FROM tbl WHERE id = ?", [ 2 ],
+     *    function cb(row: any) {
+     *        // Act on row
+     *    }
+     * );
+     * // As an object with named parameters.
+     * db.each("SELECT name FROM tbl WHERE id = $id", {
+     *    $id: 2
+     * },
+     *    function cb(row: any) {
+     *        // Act on row
+     *    }
+     * );
+     *
+     * @param sql - The SQL statement
+     * @param params - Parameters for the statement
+     * @param callback - Function to call for each row
+     */
+    async each<T = any>(
+        sql: string,
+        ...params: any[]
+    ): Promise<number> {
+        const lastArg = params[params.length - 1];
+        if (typeof lastArg !== 'function') {
+            throw new Error('The last argument to each() must be a callback function.');
+        }
+        const callback = lastArg as (row: T) => void;
+        const _params = params.slice(0, -1);
+
+        return new Promise((resolve, reject) => {
+            setImmediate(async () => {
+                try {
+                    const asyncStmt = this.#getStatement(sql);
+                    const p = _params.length > 0 
+                        ? (
+                            _params.length === 1 ? _params[0] : _params)
+                        : undefined;
+                    const count = await asyncStmt.each(p, callback);
+                    resolve(count);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    /**
+     * Runs all SQL queries in the supplied string.
+     *
+     * @param sql - One or more SQL statements separated by semicolons
+     */
+    async exec(sql: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            setImmediate(() => {
+                try {
+                    this.#db.exec(sql);
+                    resolve();
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    /**
+     * Prepares the SQL statement and returns an AsyncStatement.
+     *
+     * @param sql - The SQL statement
+     * @param params - Optional parameters to bind immediately
+     */
+    async prepare(sql: string, ...params: unknown[]): Promise<AsyncStatement> {
+        return new Promise((resolve, reject) => {
+            setImmediate(() => {
+                try {
+                    const asyncStmt = this.#getStatement(sql);
+                    
+                    // If parameters provided, bind them
+                    if (params.length > 0) {
+                        const p = this.#normalizeParams(params);
+                        // Note: node:sqlite auto-binds on run/get/all, 
+                        // so we just store for later use
+                        asyncStmt['_bindParams'] = p;
                     }
-                };
-            }
-        };
-    }
-
-    all(sql: string): Promise<any[]>
-    all(sql: string, params: any): Promise<any[]>
-    all(sql: string, params?: any): Promise<any[]> {
-        return new Promise((resolve, reject) => {
-            const cb = (err, rows) => {
-                if (err) {
+                    
+                    resolve(asyncStmt);
+                } catch (err) {
                     reject(err);
-                    return;
                 }
-                resolve(rows);
-            };
-            if (params === undefined) {
-                this.db.all(sql, cb);
-            } else {
-                this.db.all(sql, params, cb);
-            }
+            });
         });
     }
 
-    get(sql: string): Promise<any>
-    get(sql: string, params: any): Promise<any>
-    get(sql: string, params?: any): Promise<any> {
+    /**
+     * Load a SQLite extension.
+     * The database must have been opened with allowExtension: true.
+     *
+     * @param path - Path to the extension library
+     * @param entryPoint - Optional entry point name (not supported in node:sqlite currently)
+     */
+    async loadExtension(path: string, entryPoint?: string): Promise<void> {
         return new Promise((resolve, reject) => {
-            const cb = (err, row) => {
-                if (err) {
+            setImmediate(() => {
+                try {
+                    // Note: node:sqlite doesn'                    // Note: node:sqlite doesn't support entryPoint parameter yet
+                    this.#db.loadExtension(path);
+                    resolve();
+                } catch (err) {
                     reject(err);
-                    return;
                 }
-                resolve(row);
-            };
-            if (params === undefined) {
-                this.db.get(sql, cb);
-            } else {
-                this.db.get(sql, params, cb);
-            }
+            });
+        });
+    }
+}
+
+/**
+ * A thin wrapper around StatementSync that exposes an async API.
+ * Compatible with promised-sqlite3's AsyncStatement interface.
+ */
+export class AsyncStatement {
+    #statement: StatementSync;
+    #bindParams?: any;
+
+    /**
+     * Create a new AsyncStatement from a StatementSync object.
+     *
+     * @param statement - The StatementSync object
+     */
+    constructor(statement: StatementSync) {
+        this.#statement = statement;
+    }
+
+    /**
+     * @returns The inner StatementSync object
+     */
+    get inner(): StatementSync {
+        return this.#statement;
+    }
+
+    /**
+     * Binds parameters to the prepared statement.
+     * Note: In node:sqlite, binding happens automatically on run/get/all,
+     * so this method just stores the params for later use.
+     *
+     * @param params - Parameters to bind
+     */
+    async bind(...params: unknown[]): Promise<void> {
+        return new Promise((resolve) => {
+            setImmediate(() => {
+                if (params.length === 1) {
+                    this.#bindParams = params[0];
+                } else if (params.length > 1) {
+                    this.#bindParams = params;
+                }
+                resolve();
+            });
         });
     }
 
-    run(sql: string): Promise<RunResult>
-    run(sql: string, params: any): Promise<RunResult>
-    run(sql: string, params?: any): Promise<RunResult> {
+    /**
+     * Resets the row cursor of the statement.
+     * Note: node:sqlite handles this automatically, so this is a no-op for compatibility.
+     */
+    async reset(): Promise<void> {
+        return new Promise((resolve) => {
+            setImmediate(() => {
+                // No-op for compatibility with promised-sqlite3
+                // node:sqlite handles statement reuse automatically
+                resolve();
+            });
+        });
+    }
+
+    /**
+     * Finalizes the statement.
+     * Note: node:sqlite handles cleanup automatically, so this is a no-op for compatibility.
+     */
+    async finalize(): Promise<void> {
+        return new Promise((resolve) => {
+            setImmediate(() => {
+                // No-op for compatibility with promised-sqlite3
+                // node:sqlite handles cleanup automatically
+                resolve();
+            });
+        });
+    }
+
+    /**
+     * Binds parameters and executes the statement.
+     *
+     * For compatibility with the old sqlite3 package, the
+     * params must be supplied in one of three ways:
+     * 
+     * // Directly in the function arguments.
+     * stmt.run("bar", 2);
+     * // As an array.
+<0xA0>      * stmt.run("bar", [ 2 ]);
+     * // As an object with named parameters.
+     * stmt.run({
+     *    $id: 2,
+     *    $name: "bar"
+     * });
+     * 
+     * @param params - Parameters to bind (overrides any previously bound params)
+     */
+    async run(...params: unknown[]): Promise<RunResult> {
         return new Promise((resolve, reject) => {
-            function cb(err) {
-                if (err) {
+            setImmediate(() => {
+                try {
+                    console.log(`run STATEMENT params=`, params);
+                    let p: any;
+                    if (params.length > 0) {
+                        p = params.length === 1 ? params[0] : params;
+                    } else {
+                        p = this.#bindParams;
+                    }
+                    
+                    console.log(`run STATEMENT`, p);
+                    let result;
+                    if (typeof p === 'undefined') {
+                        result = this.#statement.run();
+                    } else if (Array.isArray(p)) {
+                        result = this.#statement.run(...p);
+                    } else  {
+                        result = this.#statement.run(p);
+                    }
+                    // const result = p !== undefined
+                    //     ? this.#statement.run(p)
+                    //     : this.#statement.run();
+                    resolve({
+                        changes: typeof result.changes === 'bigint' 
+                            ? Number(result.changes) 
+                            : result.changes,
+                        lastInsertRowid: typeof result.lastInsertRowid === 'bigint' 
+                            ? Number(result.lastInsertRowid) 
+                            : result.lastInsertRowid
+                    });
+                } catch (err) {
                     reject(err);
-                    return;
                 }
-                resolve({
-                    lastID: this.lastID,
-                    changes: this.changes,
-                });
-            }
-            if (params === undefined) {
-                this.db.run(sql, cb);
-            } else {
-                this.db.run(sql, params, cb);
-            }
+            });
+        });
+    }
+
+    /**
+     * Binds parameters, executes the statement and retrieves the first result row.
+     *
+     * For compatibility with the old sqlite3 package, the
+     * params must be supplied in one of three ways:
+     * 
+     * // Directly in the function arguments.
+     * stmt.get(2);
+     * // As an array.
+     * stmt.get([ 2 ]);
+     * // As an object with named parameters.
+     * stmt.get({
+     *     $id: 2
+     * });
+     *
+     * @param params - Parameters to bind (overrides any previously bound params)
+     */
+    async get<T = any>(...params: unknown[]): Promise<T | undefined> {
+        return new Promise((resolve, reject) => {
+            setImmediate(() => {
+                try {
+                    let p: any;
+                    if (params.length > 0) {
+                        p = params.length === 1 ? params[0] : params;
+                    } else {
+                        p = this.#bindParams;
+                    }
+                    
+                    const result = p !== undefined ? this.#statement.get(p) : this.#statement.get();
+                    resolve(result as T | undefined);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    /**
+     * Binds parameters, executes the statement and returns all result rows.
+     *
+     * For compatibility with the old sqlite3 package, the
+     * params must be supplied in one of three ways:
+     * 
+     * // Directly in the function arguments.
+     * stmt.all(2);
+     * // As an array.
+     * stmt.all([ 2 ]);
+     * // As an object with named parameters.
+     * stmt.all({
+     *    $id: 2
+     * });
+     *
+     * @param params - Parameters to bind (overrides any previously bound params)
+     */
+    async all<T = any>(...params: unknown[]): Promise<T[]> {
+        return new Promise((resolve, reject) => {
+            setImmediate(() => {
+                try {
+                    let p: any;
+                    if (params.length > 0) {
+                        p = params.length === 1 ? params[0] : params;
+                    } else {
+                        p = this.#bindParams;
+                    }
+                    
+                    const result = p !== undefined
+                        ? this.#statement.all(p)
+                        : this.#statement.all();
+                    resolve(result as T[]);
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    /**
+     * Binds parameters, executes the statement and calls the callback for each result row.
+     * 
+     * Returns the number of rows processed.
+     *
+     * For compatibility with the old sqlite3 package, the
+     * params must be supplied in one of three ways:
+     * 
+     * // Directly in the function arguments.
+     * stmt.each(2,
+     *    function cb(row: any) {
+     *        // Act on row
+     *    }
+     * );
+     * // As an array.
+     * stmt.each([ 2 ],
+     *    function cb(row: any) {
+     *        // Act on row
+     *    }
+     * );
+     * // As an object with named parameters.
+     * stmt.each({
+     *    $id: 2
+     * },
+     *    function cb(row: any) {
+     *        // Act on row
+     *    }
+     * );
+     *
+     * @param params - Parameters to bind
+     * @param callback - Function to call for each row
+     */
+    async each<T = any>(
+        ...params: any[]
+    ): Promise<number> {
+        const lastArg = params[params.length - 1];
+        if (typeof lastArg !== 'function') {
+            throw new Error('The last argument to each() must be a callback function.');
+        }
+        const callback = lastArg as (row: T) => void;
+        const _params = params.slice(0, -1);
+
+        return new Promise((resolve, reject) => {
+            setImmediate(async () => {
+                try {
+                    let count = 0;
+                    const p = _params.length > 0 
+                        ? (
+                            _params.length === 1 ? _params[0] : _params)
+                        : undefined;
+                    const iterator = p !== undefined 
+                        ? this.#statement.iterate(p)
+                        : this.#statement.iterate();
+                    for await (const row of iterator) {
+                        callback(row as T);
+                        count++;
+                    }
+                    resolve(count);
+                } catch (err) {
+                    reject(err);
+                }
+            });
         });
     }
 }

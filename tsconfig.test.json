@@ -6,13 +6,15 @@
     "moduleResolution": "NodeNext",
     "target": "esnext",
     "outDir": "dist.test",
+    "rootDir": ".",
     "sourceMap": true,
     "declaration": true,
     "noImplicitAny": false,
     "experimentalDecorators": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["node"]
   },
-  "include": ["test/**/*"],
+  "include": ["src/**/*", "test/**/*"],
   "exclude": ["node_modules", ".git"]
 }

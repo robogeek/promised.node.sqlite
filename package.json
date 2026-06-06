@@ -37,10 +37,11 @@
     "clean.test": "rimraf dist.test"
   },
   "devDependencies": {
+    "@types/node": "^25.9.1",
     "ava": "^3.15.0",
     "rimraf": "^3.0.2",
     "typescript": "^6.x",
-    "typescript-cp": "^1.0.3"
+    "typescript-cp": "^0.1.9"
   },
   "ava": {
     "files": [
