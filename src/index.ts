@@ -225,9 +225,20 @@ export class AsyncDatabase {
      * Converts undefined values to null as node:sqlite doesn't accept undefined
      */
     #normalizeParams(params: unknown[] | undefined): any {
+
+        //  fn(param1, param2, param3)  --- becomes ---|
+        //  fn([ param1, param2, param3 ])   <---------|
+        //  fn({
+        //    $param1: param1,
+        //    $param2: param2,
+        //    $param3: param3
+        //  })
+        
         if (typeof params === 'undefined' || params.length === 0) {
             return undefined;
         }
+
+        // console.log(`normalizeParams`, params);
         
         const normalized = params.length === 1 ? params[0] : params;
         
@@ -244,7 +255,8 @@ export class AsyncDatabase {
             }
         }
         
-        return normalized;
+        // console.log(`normalizeParams normalized`, normalized);
+        return [ normalized ];
     }
 
     /**
@@ -271,21 +283,18 @@ export class AsyncDatabase {
             setImmediate(async () => {
                 try {
                     const asyncStmt = this.#getStatement(sql);
-                    console.log(`run ${sql} params=`, params);
+                    // console.log(`run ${sql} params=`, params);
                     const p = this.#normalizeParams(params);
-                    console.log(`run ${sql}`, p);
+                    // console.log(`run ${sql}`, p);
 
-                    // let result;
-                    // if (typeof p === 'undefined') {
-                    //     result = await asyncStmt.run();
-                    // } else if (Array.isArray(p)) {
-                    //     result = await asyncStmt.run(...p);
-                    // } else  {
-                    //     result = await asyncStmt.run(p);
-                    // }
-                    const result = p !== undefined
-                        ? await asyncStmt.run(...p)
-                        : await asyncStmt.run();
+                    let result;
+                    if (typeof p === 'undefined') {
+                        result = await asyncStmt.run();
+                    } else if (Array.isArray(p)) {
+                        result = await asyncStmt.run(...p);
+                    } else  {
+                        result = await asyncStmt.run(p);
+                    }
                     
                     resolve({
                         changes: typeof result.changes === 'bigint' 
@@ -326,9 +335,14 @@ export class AsyncDatabase {
                 try {
                     const asyncStmt = this.#getStatement(sql);
                     const p = this.#normalizeParams(params);
-                    const result = p !== undefined
-                        ? asyncStmt.get(p)
-                        : asyncStmt.get();
+                    let result;
+                    if (typeof p === 'undefined') {
+                        result = asyncStmt.get();
+                    } else if (Array.isArray(p)) {
+                        result = asyncStmt.get(...p);
+                    } else {
+                        result = asyncStmt.get(p);
+                    }
                     resolve(result as T | undefined);
                 } catch (err) {
                     reject(err);
@@ -361,9 +375,14 @@ export class AsyncDatabase {
                 try {
                     const asyncStmt = this.#getStatement(sql);
                     const p = this.#normalizeParams(params);
-                    const result = p !== undefined
-                        ? asyncStmt.all(p)
-                        : asyncStmt.all();
+                    let result;
+                    if (typeof p === 'undefined') {
+                        result = asyncStmt.all();
+                    } else if (Array.isArray(p)) {
+                        result = asyncStmt.all(...p);
+                    } else {
+                        result = asyncStmt.all(p);
+                    }
                     resolve((result as unknown) as T[]);
                 } catch (err) {
                     reject(err);
@@ -595,7 +614,7 @@ export class AsyncStatement {
         return new Promise((resolve, reject) => {
             setImmediate(() => {
                 try {
-                    console.log(`run STATEMENT params=`, params);
+                    // console.log(`run STATEMENT params=`, params);
                     let p: any;
                     if (params.length > 0) {
                         p = params.length === 1 ? params[0] : params;
@@ -603,7 +622,7 @@ export class AsyncStatement {
                         p = this.#bindParams;
                     }
                     
-                    console.log(`run STATEMENT`, p);
+                    // console.log(`run STATEMENT`, p);
                     let result;
                     if (typeof p === 'undefined') {
                         result = this.#statement.run();
@@ -612,9 +631,6 @@ export class AsyncStatement {
                     } else  {
                         result = this.#statement.run(p);
                     }
-                    // const result = p !== undefined
-                    //     ? this.#statement.run(p)
-                    //     : this.#statement.run();
                     resolve({
                         changes: typeof result.changes === 'bigint' 
                             ? Number(result.changes) 
