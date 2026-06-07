@@ -2131,3 +2131,215 @@ test('prepared statement with named parameters', async () => {
   
   await db.close();
 });
+
+// ============================================================================
+// Type Coercion and Invalid Parameter Tests
+// ============================================================================
+
+test('run should accept string value for INTEGER column (SQLite type affinity)', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, name TEXT)');
+  
+  // SQLite allows type mismatches - it stores the value as-is
+  await db.run('INSERT INTO test VALUES (?, ?)', 'not-a-number', 'test');
+  const row = await db.get('SELECT * FROM test WHERE name = ?', 'test');
+  
+  assert.strictEqual(row.id, 'not-a-number');
+  assert.strictEqual(typeof row.id, 'string');
+  
+  await db.close();
+});
+
+test('run should accept integer value for TEXT column', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, name TEXT)');
+  
+  await db.run('INSERT INTO test VALUES (?, ?)', 1, 12345);
+  const row = await db.get('SELECT * FROM test WHERE id = ?', 1);
+  
+  // SQLite converts number to string with .0 suffix
+  assert.strictEqual(row.name, '12345.0');
+  assert.strictEqual(typeof row.name, 'string');
+  
+  await db.close();
+});
+
+test('run should accept string value for REAL column', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, price REAL)');
+  
+  await db.run('INSERT INTO test VALUES (?, ?)', 1, 'not-a-float');
+  const row = await db.get('SELECT * FROM test WHERE id = ?', 1);
+  
+  assert.strictEqual(row.price, 'not-a-float');
+  assert.strictEqual(typeof row.price, 'string');
+  
+  await db.close();
+});
+
+test('run should accept NULL value', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, name TEXT)');
+  
+  await db.run('INSERT INTO test VALUES (?, ?)', 1, null);
+  const row = await db.get('SELECT * FROM test WHERE id = ?', 1);
+  
+  assert.strictEqual(row.name, null);
+  
+  await db.close();
+});
+
+test('run should treat undefined as NULL', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, name TEXT)');
+  
+  await db.run('INSERT INTO test VALUES (?, ?)', 1, undefined);
+  const row = await db.get('SELECT * FROM test WHERE id = ?', 1);
+  
+  assert.strictEqual(row.name, null);
+  
+  await db.close();
+});
+
+test('run should throw error for object value', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, name TEXT)');
+  
+  await assert.rejects(
+    async () => db.run('INSERT INTO test VALUES (?, ?)', 1, { foo: 'bar' }),
+    (err: NodeJS.ErrnoException) => {
+      assert.strictEqual(err.code, 'ERR_INVALID_ARG_TYPE');
+      assert.match(err.message, /cannot be bound to SQLite parameter/);
+      return true;
+    }
+  );
+  
+  await db.close();
+});
+
+test('run should throw error for array value', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, name TEXT)');
+  
+  await assert.rejects(
+    async () => db.run('INSERT INTO test VALUES (?, ?)', 1, [1, 2, 3]),
+    (err: NodeJS.ErrnoException) => {
+      assert.strictEqual(err.code, 'ERR_INVALID_ARG_TYPE');
+      assert.match(err.message, /cannot be bound to SQLite parameter/);
+      return true;
+    }
+  );
+  
+  await db.close();
+});
+
+test('get should handle type coercion same as run', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, value TEXT)');
+  await db.run('INSERT INTO test VALUES (?, ?)', 'string-id', 999);
+  
+  const row = await db.get('SELECT * FROM test WHERE id = ?', 'string-id');
+  
+  assert.strictEqual(row.id, 'string-id');
+  assert.strictEqual(row.value, '999.0');
+  
+  await db.close();
+});
+
+test('all should handle type coercion same as run', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, value TEXT)');
+  await db.run('INSERT INTO test VALUES (?, ?)', 'id1', 100);
+  await db.run('INSERT INTO test VALUES (?, ?)', 'id2', 200);
+  
+  const rows = await db.all('SELECT * FROM test');
+  
+  assert.strictEqual(rows.length, 2);
+  assert.strictEqual(rows[0].id, 'id1');
+  assert.strictEqual(rows[0].value, '100.0');
+  
+  await db.close();
+});
+
+test('each should handle type coercion same as run', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, value TEXT)');
+  await db.run('INSERT INTO test VALUES (?, ?)', 'id1', 100);
+  
+  const rows: any[] = [];
+  await db.each('SELECT * FROM test', (row: any) => {
+    rows.push(row);
+  });
+  
+  assert.strictEqual(rows[0].id, 'id1');
+  assert.strictEqual(rows[0].value, '100.0');
+  
+  await db.close();
+});
+
+test('get should throw error for object parameter with positional placeholder', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER)');
+  
+  // Object parameters are treated as named parameters, 
+  // so using { id: 1 } with ? placeholder causes "Unknown named parameter"
+  await assert.rejects(
+    async () => db.get('SELECT * FROM test WHERE id = ?', { id: 1 }),
+    (err: NodeJS.ErrnoException) => {
+      assert.strictEqual(err.code, 'ERR_INVALID_STATE');
+      assert.match(err.message, /Unknown named parameter/);
+      return true;
+    }
+  );
+  
+  await db.close();
+});
+
+test('all should throw error for array as single parameter value', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  
+  await assert.rejects(
+    async () => db.all('SELECT * FROM customers WHERE CustomerId = ?', [1, 2, 3]),
+    (err: NodeJS.ErrnoException) => {
+      // This actually works differently - arrays are treated as parameter arrays
+      // So this will fail with "wrong number of parameters"
+      assert.strictEqual(err.code, 'ERR_SQLITE_ERROR');
+      return true;
+    }
+  );
+  
+  await db.close();
+});
+
+test('prepared statement should handle type coercion', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, name TEXT)');
+  await db.run('INSERT INTO test VALUES (?, ?)', 1, 'test');
+  
+  const stmt = await db.prepare('SELECT * FROM test WHERE id = ?');
+  
+  // Pass string to INTEGER column
+  const row = await stmt.get('1');
+  assert.ok(row); // SQLite will coerce '1' to 1 for comparison
+  
+  await db.close();
+});
+
+test('prepared statement should throw error for object parameter with positional placeholder', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER)');
+  
+  const stmt = await db.prepare('SELECT * FROM test WHERE id = ?');
+  
+  // Object parameters are treated as named parameters
+  await assert.rejects(
+    async () => stmt.get({ foo: 'bar' }),
+    (err: NodeJS.ErrnoException) => {
+      assert.strictEqual(err.code, 'ERR_INVALID_STATE');
+      assert.match(err.message, /Unknown named parameter/);
+      return true;
+    }
+  );
+  
+  await db.close();
+});
