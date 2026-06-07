@@ -105,7 +105,7 @@ export function open(filename: string, mode: number): Promise<AsyncDatabase>
 export function open(filename: string, mode?: number): Promise<AsyncDatabase> {
     return new Promise((resolve) => {
         const options = <DatabaseOptions>{
-            readly: typeof mode !== 'undefined' && mode === OPEN_READONLY
+            readOnly: typeof mode !== 'undefined' && mode === OPEN_READONLY
         };
         const db = AsyncDatabase.open(filename, options); // new DatabaseSync(filename, options);
         resolve(db);

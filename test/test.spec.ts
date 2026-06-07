@@ -4,6 +4,7 @@ import { copyFileSync, unlinkSync, existsSync, chmodSync } from 'node:fs'
 import {
   open,
   OPEN_READWRITE,
+  OPEN_READONLY,
   AsyncDatabase
 } from '../src/index.js'
 
@@ -1667,4 +1668,160 @@ test('db.each should throw error for nonexistent column in WHERE clause', async 
     }
   );
   await db.close();
+});
+
+// Tests for database file opening behavior
+
+test('open() should auto-create database file if it does not exist', async () => {
+  const testFile = './test-autocreate.db';
+  const { existsSync, unlinkSync } = await import('node:fs');
+  
+  // Ensure file doesn't exist
+  if (existsSync(testFile)) {
+    unlinkSync(testFile);
+  }
+  
+  assert.strictEqual(existsSync(testFile), false, 'File should not exist before test');
+  
+  const db = await open(testFile);
+  assert.strictEqual(existsSync(testFile), true, 'File should be created after opening');
+  
+  await db.close();
+  
+  // Cleanup
+  unlinkSync(testFile);
+});
+
+test('AsyncDatabase.open() should auto-create database file if it does not exist', async () => {
+  const testFile = './test-asyncdb-autocreate.db';
+  const { existsSync, unlinkSync } = await import('node:fs');
+  
+  // Ensure file doesn't exist
+  if (existsSync(testFile)) {
+    unlinkSync(testFile);
+  }
+  
+  assert.strictEqual(existsSync(testFile), false, 'File should not exist before test');
+  
+  const db = await AsyncDatabase.open(testFile);
+  assert.strictEqual(existsSync(testFile), true, 'File should be created after opening');
+  
+  await db.close();
+  
+  // Cleanup
+  unlinkSync(testFile);
+});
+
+test('open() with OPEN_READONLY should fail if file does not exist', async () => {
+  const testFile = './test-readonly-nonexistent.db';
+  const { existsSync, unlinkSync } = await import('node:fs');
+  
+  // Ensure file doesn't exist
+  if (existsSync(testFile)) {
+    unlinkSync(testFile);
+  }
+  
+  assert.strictEqual(existsSync(testFile), false, 'File should not exist before test');
+  
+  await assert.rejects(
+    async () => await open(testFile, OPEN_READONLY),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /unable to open database file/
+    }
+  );
+  
+  assert.strictEqual(existsSync(testFile), false, 'File should not be created after failed open');
+});
+
+test('AsyncDatabase.open() with readOnly option should fail if file does not exist', async () => {
+  const testFile = './test-asyncdb-readonly-nonexistent.db';
+  const { existsSync, unlinkSync } = await import('node:fs');
+  
+  // Ensure file doesn't exist
+  if (existsSync(testFile)) {
+    unlinkSync(testFile);
+  }
+  
+  assert.strictEqual(existsSync(testFile), false, 'File should not exist before test');
+  
+  await assert.rejects(
+    async () => await AsyncDatabase.open(testFile, { readOnly: true }),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /unable to open database file/
+    }
+  );
+  
+  assert.strictEqual(existsSync(testFile), false, 'File should not be created after failed open');
+});
+
+test('open() with OPEN_READONLY should succeed if file exists', async () => {
+  const testFile = './test-readonly-exists.db';
+  const { existsSync, unlinkSync } = await import('node:fs');
+  
+  // Create the file first
+  const createDb = await open(testFile);
+  await createDb.run('CREATE TABLE test (id INTEGER)');
+  await createDb.close();
+  
+  assert.strictEqual(existsSync(testFile), true, 'File should exist');
+  
+  // Now open in readonly mode
+  const db = await open(testFile, OPEN_READONLY);
+  
+  // Should be able to read
+  const rows = await db.all('SELECT * FROM test');
+  assert.strictEqual(Array.isArray(rows), true);
+  
+  // Should NOT be able to write (this will throw an error)
+  await assert.rejects(
+    async () => await db.run('INSERT INTO test (id) VALUES (1)'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /attempt to write a readonly database/
+    }
+  );
+  
+  await db.close();
+  
+  // Cleanup
+  unlinkSync(testFile);
+});
+
+test('AsyncDatabase.open() with readOnly should succeed if file exists', async () => {
+  const testFile = './test-asyncdb-readonly-exists.db';
+  const { existsSync, unlinkSync } = await import('node:fs');
+  
+  // Create the file first
+  const createDb = await AsyncDatabase.open(testFile);
+  await createDb.run('CREATE TABLE test (id INTEGER)');
+  await createDb.close();
+  
+  assert.strictEqual(existsSync(testFile), true, 'File should exist');
+  
+  // Now open in readonly mode
+  const db = await AsyncDatabase.open(testFile, { readOnly: true });
+  
+  // Should be able to read
+  const rows = await db.all('SELECT * FROM test');
+  assert.strictEqual(Array.isArray(rows), true);
+  
+  // Should NOT be able to write
+  await assert.rejects(
+    async () => await db.run('INSERT INTO test (id) VALUES (1)'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /attempt to write a readonly database/
+    }
+  );
+  
+  await db.close();
+  
+  // Cleanup
+  unlinkSync(testFile);
 });
