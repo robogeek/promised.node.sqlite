@@ -1,4 +1,5 @@
-import test from 'ava'
+import { test } from 'node:test'
+import assert from 'node:assert'
 import {
   open,
   OPEN_READWRITE,
@@ -9,33 +10,31 @@ import {
 /**
  * in memory based database
  */
-test.serial('in memory based database', async t => {
+test('in memory based database', async () => {
   // open the database
   const db = await open(':memory:')
   // console.log('Connected to the in-memory SQlite database.');
   // close the database connection
   await db.close()
   // console.log('Close the database connection.');
-  t.pass()
 });
 
 /**
  * in memory based database
  */
-test.serial('in memory based database - AsyncDatabase.open', async t => {
+test('in memory based database - AsyncDatabase.open', async () => {
   // open the database
   const db = await AsyncDatabase.open(':memory:');
   // console.log('Connected to the in-memory SQlite database.');
   // close the database connection
   await db.close()
   // console.log('Close the database connection.');
-  t.pass()
 });
 
 /**
  * disk file based database
  */
-test.serial('disk file as database', async t => {
+test('disk file as database', async () => {
   // open the database
   const db = await open('./assets/chinook.db', OPEN_READWRITE)
   // console.log('Connected to the database.');
@@ -43,8 +42,8 @@ test.serial('disk file as database', async t => {
                             Name as name
                             FROM playlists`)
   // console.log(row.id + '\t' + row.name);
-  t.is(row.id, 1)
-  t.is(row.name, 'Music')
+  assert.strictEqual(row.id, 1)
+  assert.strictEqual(row.name, 'Music')
   await db.close()
   // console.log('Close the database connection');
 });
@@ -52,7 +51,7 @@ test.serial('disk file as database', async t => {
 /**
  * disk file based database
  */
-test.serial('disk file as database - AsyncDatabase.open', async t => {
+test('disk file as database - AsyncDatabase.open', async () => {
   // open the database
   const db = await AsyncDatabase.open('./assets/chinook.db', {
   });
@@ -61,8 +60,8 @@ test.serial('disk file as database - AsyncDatabase.open', async t => {
                             Name as name
                             FROM playlists`)
   // console.log(row.id + '\t' + row.name);
-  t.is(row.id, 1)
-  t.is(row.name, 'Music')
+  assert.strictEqual(row.id, 1)
+  assert.strictEqual(row.name, 'Music')
   await db.close()
   // console.log('Close the database connection');
 })
@@ -70,7 +69,7 @@ test.serial('disk file as database - AsyncDatabase.open', async t => {
 /**
  * Querying all rows with all() method
  */
-test.serial('Querying all rows with all() method -- AsyncDatabase.open', async t => {
+test('Querying all rows with all() method -- AsyncDatabase.open', async () => {
   const sql = `SELECT DISTINCT Name name FROM playlists
                ORDER BY name`;
   const db = await AsyncDatabase.open('./assets/chinook.db', {
@@ -83,7 +82,7 @@ test.serial('Querying all rows with all() method -- AsyncDatabase.open', async t
     retrieved.push(row.name);
   })
   const comparisons = [
-    '90’s Music',
+    '90\u2019s Music',
     'Audiobooks',
     'Brazilian Music',
     'Classical',
@@ -99,13 +98,13 @@ test.serial('Querying all rows with all() method -- AsyncDatabase.open', async t
     'On-The-Go 1',
     'TV Shows',
   ];
-  t.deepEqual(retrieved, comparisons);
+  assert.deepStrictEqual(retrieved, comparisons);
 });
 
 /**
  * Querying all rows with all() method
  */
-test.serial('Querying all rows with all() method -- open', async t => {
+test('Querying all rows with all() method -- open', async () => {
   const sql = `SELECT DISTINCT Name name FROM playlists
                ORDER BY name`;
   const db = await open('./assets/chinook.db');
@@ -114,7 +113,7 @@ test.serial('Querying all rows with all() method -- open', async t => {
     // console.log(row.name);
   });
   const comparisons = [
-    '90’s Music',
+    '90\u2019s Music',
     'Audiobooks',
     'Brazilian Music',
     'Classical',
@@ -129,14 +128,14 @@ test.serial('Querying all rows with all() method -- open', async t => {
     'On-The-Go 1',
     'TV Shows',
   ];
-  t.deepEqual(rows.map(row => row.name), comparisons);
+  assert.deepStrictEqual(rows.map(row => row.name), comparisons);
   await db.close();
 });
 
 /**
  * Query the first row in the result set
  */
-test.serial('Query the first row in the result set', async t => {
+test('Query the first row in the result set', async () => {
   // open the database
   const db = await open('./assets/chinook.db')
   const sql = `SELECT PlaylistID id,
@@ -149,8 +148,8 @@ test.serial('Query the first row in the result set', async t => {
   // row
   // ? console.log(row.id, row.name)
   // : console.log(`No playlist found with the id ${playlistId}`)
-  t.is(row.id, 1)
-  t.is(row.name, 'Music')
+  assert.strictEqual(row.id, 1)
+  assert.strictEqual(row.name, 'Music')
   // close the database connection
   await db.close()
 });
@@ -158,7 +157,7 @@ test.serial('Query the first row in the result set', async t => {
 /**
  * Query the first row in the result set
  */
-test.serial('Query the first row in the result set -- AsyncDatabase.open', async t => {
+test('Query the first row in the result set -- AsyncDatabase.open', async () => {
   // open the database
   const db = await AsyncDatabase.open('./assets/chinook.db', {
   });
@@ -173,15 +172,15 @@ test.serial('Query the first row in the result set -- AsyncDatabase.open', async
   // row
   // ? console.log(row.id, row.name)
   // : console.log(`No playlist found with the id ${playlistId}`)
-  t.is(row.id, 1)
-  t.is(row.name, 'Music')
+  assert.strictEqual(row.id, 1)
+  assert.strictEqual(row.name, 'Music')
   // close the database connection
 })
 
 /**
  * for await ... of
  */
-test.serial('for await ... of', async t => {
+test('for await ... of', async () => {
   const asyncIterable = () => 
   {
     return {
@@ -201,13 +200,12 @@ test.serial('for await ... of', async t => {
   for await (let num of asyncIterable()) {
     // console.log(num);
   }
-  t.pass()
 })
 
 /**
  * Query rows with each() method
  */
-test.serial('Query rows with each() method', async t => {
+test('Query rows with each() method', async () => {
   // open the database
   const db = await open('./assets/chinook.db')
   const sql = `SELECT FirstName firstName,
@@ -237,14 +235,14 @@ test.serial('Query rows with each() method', async t => {
     'Tim Goyer - tgoyer@apple.com',
     'Victor Stevens - vstevens@yahoo.com',
   ]
-  t.deepEqual(rows, comparisons)
+  assert.deepStrictEqual(rows, comparisons)
   await db.close()
 })
 
 /**
  * Query rows with each() method
  */
-test.serial('Query rows with each() method -- AsyncDatabase.open', async t => {
+test('Query rows with each() method -- AsyncDatabase.open', async () => {
   // open the database
   const db = await AsyncDatabase.open('./assets/chinook.db', {
   });
@@ -275,14 +273,14 @@ test.serial('Query rows with each() method -- AsyncDatabase.open', async t => {
     'Tim Goyer - tgoyer@apple.com',
     'Victor Stevens - vstevens@yahoo.com',
   ]
-  t.deepEqual(rows, comparisons)
+  assert.deepStrictEqual(rows, comparisons)
   await db.close()
 });
 
 /**
  * Verify that errors in each() method are reported to the caller
  */
-test.serial('Catch error in each() method callback', async t => {
+test('Catch error in each() method callback', async () => {
   // open the database
   const db = await AsyncDatabase.open('./assets/chinook.db', {
   });
@@ -300,16 +298,16 @@ test.serial('Catch error in each() method callback', async t => {
       throw new Error('PRETEND SOMETHING FAILED');
     });
   } catch (e: any) {
-    t.is(e.message, 'PRETEND SOMETHING FAILED');
+    assert.strictEqual(e.message, 'PRETEND SOMETHING FAILED');
     sawError = true;
   }
-  t.is(sawError, true);
+  assert.strictEqual(sawError, true);
   await db.close()
 });
 
 // Tests for db.run with a single value in the params
 
-test.serial('Use db.run with single integer in params', async t => {
+test('Use db.run with single integer in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -322,12 +320,12 @@ test.serial('Use db.run with single integer in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with single integer array in params', async t => {
+test('Use db.run with single integer array in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -340,12 +338,12 @@ test.serial('Use db.run with single integer array in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with single integer object in params', async t => {
+test('Use db.run with single integer object in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -360,12 +358,12 @@ test.serial('Use db.run with single integer object in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with single float item in params', async t => {
+test('Use db.run with single float item in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -375,12 +373,12 @@ test.serial('Use db.run with single float item in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with single float array in params', async t => {
+test('Use db.run with single float array in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -390,12 +388,12 @@ test.serial('Use db.run with single float array in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with single float object in params', async t => {
+test('Use db.run with single float object in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -407,12 +405,12 @@ test.serial('Use db.run with single float object in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with single string in params', async t => {
+test('Use db.run with single string in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -425,12 +423,12 @@ test.serial('Use db.run with single string in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with single string array in params', async t => {
+test('Use db.run with single string array in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -443,12 +441,12 @@ test.serial('Use db.run with single string array in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with single string object in params', async t => {
+test('Use db.run with single string object in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -463,14 +461,14 @@ test.serial('Use db.run with single string object in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
 // Tests for db.run with two values in the params
 
-test.serial('Use db.run with two integer values items in params', async t => {
+test('Use db.run with two integer values items in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -483,12 +481,12 @@ test.serial('Use db.run with two integer values items in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with two integer values in array in params', async t => {
+test('Use db.run with two integer values in array in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -501,12 +499,12 @@ test.serial('Use db.run with two integer values in array in params', async t => 
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with two integer values in object in params', async t => {
+test('Use db.run with two integer values in object in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -522,12 +520,12 @@ test.serial('Use db.run with two integer values in object in params', async t =>
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with two float/integer items in params', async t => {
+test('Use db.run with two float/integer items in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -537,12 +535,12 @@ test.serial('Use db.run with two float/integer items in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with two float integer array  in params', async t => {
+test('Use db.run with two float integer array  in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -552,12 +550,12 @@ test.serial('Use db.run with two float integer array  in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with two float integer object  in params', async t => {
+test('Use db.run with two float integer object  in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -570,12 +568,12 @@ test.serial('Use db.run with two float integer object  in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with two string integer items in params', async t => {
+test('Use db.run with two string integer items in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -588,12 +586,12 @@ test.serial('Use db.run with two string integer items in params', async t => {
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with two string integer items in array in params', async t => {
+test('Use db.run with two string integer items in array in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -606,12 +604,12 @@ test.serial('Use db.run with two string integer items in array in params', async
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
 
-test.serial('Use db.run with two string integer items in object in params', async t => {
+test('Use db.run with two string integer items in object in params', async () => {
 
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
@@ -627,7 +625,7 @@ test.serial('Use db.run with two string integer items in object in params', asyn
     console.error(e.message);
     sawError = true;
   }
-  t.is(sawError, false);
+  assert.strictEqual(sawError, false);
   await db.close()
 
 });
@@ -635,14 +633,14 @@ test.serial('Use db.run with two string integer items in object in params', asyn
 /**
  * Insert on row into a table
  */
-test.serial('Insert one row into a table', async t => {
+test('Insert one row into a table', async () => {
   const db = await open(':memory:')
   // insert one row into the langs table
   await db.run('CREATE TABLE langs(name text)')
   const res = await db.run(`INSERT INTO langs(name) VALUES(?)`, 'C')
   // get the last insert id
   // console.log(`A row has been inserted with rowid ${res.lastInsertRowid}`)
-  t.is(res.lastInsertRowid, 1)
+  assert.strictEqual(res.lastInsertRowid, 1)
   // close the database connection
   await db.close()
 })
@@ -650,14 +648,14 @@ test.serial('Insert one row into a table', async t => {
 /**
  * Insert on row into a table
  */
-test.serial('Insert one row into a table -- AsyncDatabase.open', async t => {
+test('Insert one row into a table -- AsyncDatabase.open', async () => {
   const db = await AsyncDatabase.open(':memory:');
   // insert one row into the langs table
   await db.run('CREATE TABLE langs(name text)')
   const res = await db.run(`INSERT INTO langs(name) VALUES(?)`, 'C')
   // get the last insert id
   // console.log(`A row has been inserted with rowid ${res.lastInsertRowid}`)
-  t.is(res.lastInsertRowid, 1)
+  assert.strictEqual(res.lastInsertRowid, 1)
   // close the database connection
   await db.close()
 })
@@ -665,7 +663,7 @@ test.serial('Insert one row into a table -- AsyncDatabase.open', async t => {
 /**
  * Insert multiple rows into a table at a time
  */
-test.serial('Insert multiple rows into a table at a time', async t => {
+test('Insert multiple rows into a table at a time', async () => {
   // open the database connection
   const db = await AsyncDatabase.open(':memory:');
   const languages = ['C++', 'Python', 'Java', 'C#', 'Go']
@@ -678,7 +676,7 @@ test.serial('Insert multiple rows into a table at a time', async t => {
   await db.run('CREATE TABLE langs(name text)')
   const res = await db.run(sql, languages)
   // console.log(`Rows inserted ${res.changes}`);
-  t.is(res.changes, 5)
+  assert.strictEqual(res.changes, 5)
   // close the database connection
   db.close()
 })
@@ -686,7 +684,7 @@ test.serial('Insert multiple rows into a table at a time', async t => {
 /**
  * Insert multiple rows into a table at a time
  */
-test.serial('Insert multiple rows into a table at a time -- AsyncDatabase.open', async t => {
+test('Insert multiple rows into a table at a time -- AsyncDatabase.open', async () => {
   // open the database connection
   const db = await AsyncDatabase.open(':memory:');
   const languages = ['C++', 'Python', 'Java', 'C#', 'Go']
@@ -699,7 +697,7 @@ test.serial('Insert multiple rows into a table at a time -- AsyncDatabase.open',
   await db.run('CREATE TABLE langs(name text)')
   const res = await db.run(sql, ...languages)
   // console.log(`Rows inserted ${res.changes}`);
-  t.is(res.changes, 5)
+  assert.strictEqual(res.changes, 5)
   // close the database connection
   db.close()
 })
@@ -707,7 +705,7 @@ test.serial('Insert multiple rows into a table at a time -- AsyncDatabase.open',
 /**
  * Updating Data in SQLite Database from a Node.js Application
  */
-test.serial('Updating Data in SQLite Database from a Node.js Application', async t => {
+test('Updating Data in SQLite Database from a Node.js Application', async () => {
   // open the database connection
   const db = await open(':memory:');
   const languages = ['C++', 'Python', 'Java', 'C#', 'Go', 'C']
@@ -725,11 +723,11 @@ test.serial('Updating Data in SQLite Database from a Node.js Application', async
   // insert rows
   const insertRes = await db.run(sqlInsert, languages)
   // console.log(`Rows inserted: ${insertRes.changes}`);
-  t.is(insertRes.changes, 6)
+  assert.strictEqual(insertRes.changes, 6)
   // update
   const updateRes = await db.run(sqlUpdate, data)
   // console.log(`Row(s) updated: ${updateRes.changes}`);
-  t.is(updateRes.changes, 1)
+  assert.strictEqual(updateRes.changes, 1)
   // close the database connection
   await db.close()
 })
@@ -737,7 +735,7 @@ test.serial('Updating Data in SQLite Database from a Node.js Application', async
 /**
  * Updating Data in SQLite Database from a Node.js Application
  */
-test.serial('Updating Data in SQLite Database from a Node.js Application -- AsyncDatabase.open', async t => {
+test('Updating Data in SQLite Database from a Node.js Application -- AsyncDatabase.open', async () => {
   // open the database connection
   const db = await AsyncDatabase.open(':memory:');
   const languages = ['C++', 'Python', 'Java', 'C#', 'Go', 'C']
@@ -755,11 +753,11 @@ test.serial('Updating Data in SQLite Database from a Node.js Application -- Asyn
   // insert rows
   const insertRes = await db.run(sqlInsert, languages)
   // console.log(`Rows inserted: ${insertRes.changes}`);
-  t.is(insertRes.changes, 6)
+  assert.strictEqual(insertRes.changes, 6)
   // update
   const updateRes = await db.run(sqlUpdate, data)
   // console.log(`Row(s) updated: ${updateRes.changes}`);
-  t.is(updateRes.changes, 1)
+  assert.strictEqual(updateRes.changes, 1)
   // close the database connection
   await db.close()
 })
@@ -767,7 +765,7 @@ test.serial('Updating Data in SQLite Database from a Node.js Application -- Asyn
 /**
  * Deleting Data in SQLite Database from a Node.js Application
  */
-test.serial('Deleting Data in SQLite Database from a Node.js Application', async t => {
+test('Deleting Data in SQLite Database from a Node.js Application', async () => {
   // open the database connection
   const db = await AsyncDatabase.open(':memory:');
   const languages = ['C++', 'Python', 'Java', 'C#', 'Go']
@@ -779,12 +777,12 @@ test.serial('Deleting Data in SQLite Database from a Node.js Application', async
   await db.run('CREATE TABLE langs(name text)')
   const insertRes = await db.run(sql, languages)
   // console.log(`Rows inserted: ${insertRes.changes}`);
-  t.is(insertRes.changes, 5)
+  assert.strictEqual(insertRes.changes, 5)
   const id = 1
   // delete a row based on id
   const deleteRes = await db.run(`DELETE FROM langs WHERE rowid=?`, id)
   // console.log(`Row(s) deleted: ${deleteRes.changes}`);
-  t.is(deleteRes.changes, 1)
+  assert.strictEqual(deleteRes.changes, 1)
   // close the database connection
   await db.close()
 });
@@ -792,7 +790,7 @@ test.serial('Deleting Data in SQLite Database from a Node.js Application', async
 /**
  * Deleting Data in SQLite Database from a Node.js Application
  */
-test.serial('Deleting Data in SQLite Database from a Node.js Application -- AsyncDatabase.open', async t => {
+test('Deleting Data in SQLite Database from a Node.js Application -- AsyncDatabase.open', async () => {
   // open the database connection
   const db = await AsyncDatabase.open(':memory:');
   const languages = ['C++', 'Python', 'Java', 'C#', 'Go']
@@ -804,12 +802,12 @@ test.serial('Deleting Data in SQLite Database from a Node.js Application -- Asyn
   await db.run('CREATE TABLE langs(name text)')
   const insertRes = await db.run(sql, languages)
   // console.log(`Rows inserted: ${insertRes.changes}`);
-  t.is(insertRes.changes, 5)
+  assert.strictEqual(insertRes.changes, 5)
   const id = 1
   // delete a row based on id
   const deleteRes = await db.run(`DELETE FROM langs WHERE rowid=?`, id)
   // console.log(`Row(s) deleted: ${deleteRes.changes}`);
-  t.is(deleteRes.changes, 1)
+  assert.strictEqual(deleteRes.changes, 1)
   // close the database connection
   await db.close()
 })
@@ -818,7 +816,7 @@ test.serial('Deleting Data in SQLite Database from a Node.js Application -- Asyn
 /**
  * disk file based database
  */
-test.serial('disk file based database', async t => {
+test('disk file based database', async () => {
   // open the database
   const db = await open('./assets/chinook.db', OPEN_READWRITE)
   // console.log('Connected to the database.');
@@ -826,8 +824,8 @@ test.serial('disk file based database', async t => {
                             Name as name
                             FROM playlists`)
   // console.log(row.id + '\t' + row.name);
-  t.is(row.id, 1)
-  t.is(row.name, 'Music')
+  assert.strictEqual(row.id, 1)
+  assert.strictEqual(row.name, 'Music')
   await db.close()
   // console.log('Close the database connection');
 })
