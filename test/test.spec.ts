@@ -5,6 +5,7 @@ import {
   open,
   OPEN_READWRITE,
   OPEN_READONLY,
+  OPEN_URI,
   AsyncDatabase
 } from '../src/index.js'
 
@@ -1824,4 +1825,158 @@ test('AsyncDatabase.open() with readOnly should succeed if file exists', async (
   
   // Cleanup
   unlinkSync(testFile);
+});
+
+// Tests for URL and URI support
+
+test('open() should work with file:/// URL', async () => {
+  const { resolve } = await import('node:path');
+  const absolutePath = resolve('./assets/chinook-orig.db');
+  const fileUrl = `file://${absolutePath}`;
+  
+  const db = await open(fileUrl);
+  const row = await db.get('SELECT COUNT(*) as count FROM customers');
+  
+  assert.strictEqual(typeof row.count, 'number');
+  assert.ok(row.count > 0, 'Should have customers in database');
+  
+  await db.close();
+});
+
+test('AsyncDatabase.open() should work with file:/// URL', async () => {
+  const { resolve } = await import('node:path');
+  const absolutePath = resolve('./assets/chinook-orig.db');
+  const fileUrl = `file://${absolutePath}`;
+  
+  const db = await AsyncDatabase.open(fileUrl);
+  const row = await db.get('SELECT COUNT(*) as count FROM customers');
+  
+  assert.strictEqual(typeof row.count, 'number');
+  assert.ok(row.count > 0, 'Should have customers in database');
+  
+  await db.close();
+});
+
+test('open() with OPEN_URI should work with file:/// URL', async () => {
+  const { resolve } = await import('node:path');
+  const absolutePath = resolve('./assets/chinook-orig.db');
+  const fileUrl = `file://${absolutePath}`;
+  
+  const db = await open(fileUrl, OPEN_URI);
+  const row = await db.get('SELECT COUNT(*) as count FROM customers');
+  
+  assert.strictEqual(typeof row.count, 'number');
+  assert.ok(row.count > 0, 'Should have customers in database');
+  
+  await db.close();
+});
+
+test('file:/// URL with ?mode=ro query parameter should open in readonly mode', async () => {
+  const { resolve } = await import('node:path');
+  const absolutePath = resolve('./assets/chinook-orig.db');
+  const fileUrl = `file://${absolutePath}?mode=ro`;
+  
+  const db = await AsyncDatabase.open(fileUrl);
+  
+  // Should be able to read
+  const row = await db.get('SELECT COUNT(*) as count FROM customers');
+  assert.ok(row.count > 0);
+  
+  // Should NOT be able to write
+  await assert.rejects(
+    async () => await db.run('CREATE TABLE test_readonly (id INTEGER)'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /attempt to write a readonly database/
+    }
+  );
+  
+  await db.close();
+});
+
+test('file:/// URL with ?mode=rw query parameter should open in read-write mode', async () => {
+  const testFile = './test-uri-rw.db';
+  const { resolve } = await import('node:path');
+  const { existsSync, unlinkSync } = await import('node:fs');
+  
+  // Create a test database
+  const createDb = await open(testFile);
+  await createDb.run('CREATE TABLE test (id INTEGER)');
+  await createDb.close();
+  
+  const absolutePath = resolve(testFile);
+  const fileUrl = `file://${absolutePath}?mode=rw`;
+  
+  const db = await AsyncDatabase.open(fileUrl);
+  
+  // Should be able to read
+  const rows = await db.all('SELECT * FROM test');
+  assert.strictEqual(Array.isArray(rows), true);
+  
+  // Should be able to write
+  await db.run('INSERT INTO test (id) VALUES (1)');
+  const row = await db.get('SELECT COUNT(*) as count FROM test');
+  assert.strictEqual(row.count, 1);
+  
+  await db.close();
+  
+  // Cleanup
+  unlinkSync(testFile);
+});
+
+test('file:/// URL with ?mode=memory query parameter should create in-memory database', async () => {
+  const { resolve } = await import('node:path');
+  const absolutePath = resolve('./any-name.db');
+  const fileUrl = `file://${absolutePath}?mode=memory`;
+  
+  const db = await AsyncDatabase.open(fileUrl);
+  
+  // Should be able to create tables in memory
+  await db.run('CREATE TABLE test (id INTEGER, name TEXT)');
+  await db.run("INSERT INTO test (id, name) VALUES (1, 'test')");
+  
+  const row = await db.get('SELECT * FROM test WHERE id = 1');
+  assert.strictEqual(row.id, 1);
+  assert.strictEqual(row.name, 'test');
+  
+  await db.close();
+  
+  // File should not have been created
+  const { existsSync } = await import('node:fs');
+  assert.strictEqual(existsSync('./any-name.db'), false, 'Memory database should not create file');
+});
+
+test('HTTP URLs should not be supported', async () => {
+  const httpUrl = 'https://example.com/database.db';
+  
+  await assert.rejects(
+    async () => await AsyncDatabase.open(httpUrl),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /unable to open database file/
+    }
+  );
+});
+
+test('file:/// URL with nonexistent file and ?mode=ro should fail', async () => {
+  const { resolve } = await import('node:path');
+  const { existsSync } = await import('node:fs');
+  
+  const absolutePath = resolve('./nonexistent-uri-test.db');
+  
+  // Ensure file doesn't exist
+  assert.strictEqual(existsSync(absolutePath), false);
+  
+  const fileUrl = `file://${absolutePath}?mode=ro`;
+  
+  await assert.rejects(
+    async () => await AsyncDatabase.open(fileUrl),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /unable to open database file/
+    }
+  );
 });
