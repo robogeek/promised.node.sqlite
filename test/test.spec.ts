@@ -1980,3 +1980,154 @@ test('file:/// URL with nonexistent file and ?mode=ro should fail', async () => 
     }
   );
 });
+
+// Tests for prepare method error handling
+
+test('prepare should throw error when SQL is empty string', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.prepare(''),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('prepare should throw error when SQL is null', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.prepare(null as any),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('prepare should throw error when SQL is undefined', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.prepare(undefined as any),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('prepare should throw error for SQL syntax error', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.prepare('SELCT * FROM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR'
+    }
+  );
+  await db.close();
+});
+
+test('prepare should throw error for malformed SQL', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.prepare('SELECT * FORM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /syntax error/
+    }
+  );
+  await db.close();
+});
+
+test('prepare should throw error for nonexistent table', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.prepare('SELECT * FROM nonexistent_table'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such table/
+    }
+  );
+  await db.close();
+});
+
+test('prepare should throw error for nonexistent column', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.prepare('SELECT nonexistent_column FROM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});
+
+test('prepare should succeed with valid SQL and return AsyncStatement', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const stmt = await db.prepare('SELECT * FROM customers WHERE CustomerId = ?');
+  
+  // Verify it's an AsyncStatement
+  assert.ok(stmt);
+  assert.strictEqual(typeof stmt.run, 'function');
+  assert.strictEqual(typeof stmt.get, 'function');
+  assert.strictEqual(typeof stmt.all, 'function');
+  
+  await db.close();
+});
+
+test('prepare should allow binding parameters immediately', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const stmt = await db.prepare('SELECT CustomerId, FirstName FROM customers WHERE CustomerId = ?');
+  
+  // Parameters should be passed when executing, not when preparing
+  const row = await stmt.get(1);
+  assert.strictEqual(row.CustomerId, 1);
+  assert.ok(row.FirstName);
+  
+  await db.close();
+});
+
+test('prepared statement can be executed multiple times with different parameters', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const stmt = await db.prepare('SELECT CustomerId, FirstName, LastName FROM customers WHERE CustomerId = ?');
+  
+  // Execute with different parameters
+  const row1 = await stmt.get(1);
+  assert.strictEqual(row1.CustomerId, 1);
+  
+  const row2 = await stmt.get(2);
+  assert.strictEqual(row2.CustomerId, 2);
+  
+  // Should return different data
+  assert.notStrictEqual(row1.FirstName, row2.FirstName);
+  
+  await db.close();
+});
+
+test('prepared statement with array parameters', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const stmt = await db.prepare('SELECT FirstName FROM customers WHERE Country = ? AND City = ?');
+  
+  const row = await stmt.get(['USA', 'Boston']);
+  assert.strictEqual(row.FirstName, 'John');
+  
+  await db.close();
+});
+
+test('prepared statement with named parameters', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const stmt = await db.prepare('SELECT FirstName FROM customers WHERE Country = $country AND City = $city');
+  
+  const row = await stmt.get({ $country: 'USA', $city: 'Boston' });
+  assert.strictEqual(row.FirstName, 'John');
+  
+  await db.close();
+});

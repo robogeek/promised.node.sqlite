@@ -493,6 +493,7 @@ export class AsyncDatabase {
         return new Promise((resolve, reject) => {
             setImmediate(() => {
                 try {
+                    this.#validateSQL(sql);
                     const asyncStmt = this.#getStatement(sql);
                     
                     // If parameters provided, bind them
