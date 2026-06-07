@@ -19,6 +19,8 @@ Simple..? fork promised.sqlite to use `node:sqlite`.  Well, it wasn't quite that
 
 It resulted in a nearly complete rewrite which preserved the nature of promised.sqlite while embracing the new API in node:sqlite.
 
+Zero runtime dependencies, and you can move towards node:sqlite.
+
 ## Install
 
 ```shell
@@ -28,6 +30,8 @@ It resulted in a nearly complete rewrite which preserved the nature of promised.
 ## Usage
 
 The intent is to preserve the API supplied by promised.sqlite, while moving forward to similarity with the DatabaseSync class in `node:sqlite`.  Hence, code written for promised.sqlite will be more able to operate without change while offering a path to the current API.
+
+It requires Node.js 24.x and greater.
 
 ### In memory based database
 
