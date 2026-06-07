@@ -9,7 +9,7 @@
 - **Language:** TypeScript (targeting ES2022+)
 - **Node Version:** >= 24.0.0
 - **Dependencies:** None at runtime (uses built-in `node:sqlite`)
-- **Testing:** AVA test framework
+- **Testing:** Node.js built-in `node:test` framework
 - **Build Tool:** TypeScript compiler (`tsc`)
 
 ## Key Files
@@ -21,7 +21,7 @@
 | `test/` | Test files (`.spec.ts`) |
 | `package.json` | Build scripts and dependencies |
 | `tsconfig.json` | TypeScript configuration |
-| `assets/` | Sample SQLite databases for testing |
+| `assets/chinook-orig.db` | Pristine SQLite test fixture (never modified) |
 
 ## Build & Test Commands
 
@@ -49,8 +49,9 @@ The library wraps `node:sqlite` by converting synchronous methods to Promise-bas
 
 ### Testing Patterns
 - Tests are in `test/**/*.spec.ts`
-- Use AVA's `test().serial` for sequential tests
-- Tests use the `assets/chinook.db` sample database
+- Use `node:test` framework with `test()`, `before()`, `after()` hooks
+- Tests use a copy of `assets/chinook-orig.db` → `assets/chinook.db` (created before tests, deleted after)
+- This allows tests to modify the database without polluting the fixture
 - Always close database connections after tests
 
 ## Common Tasks

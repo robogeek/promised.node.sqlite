@@ -8,3 +8,6 @@ npm-debug.log
 yarn-error.log
 config.ts
 archive.tar.gz
+
+# Test database (generated from chinook-orig.db during test runs)
+assets/chinook.db

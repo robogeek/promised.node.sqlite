@@ -1,11 +1,27 @@
-import { test } from 'node:test'
+import { test, before, after } from 'node:test'
 import assert from 'node:assert'
+import { copyFileSync, unlinkSync, existsSync } from 'node:fs'
 import {
   open,
   OPEN_READWRITE,
   AsyncDatabase
 } from '../src/index.js'
 
+// Database fixture paths
+const ORIG_DB = './assets/chinook-orig.db'
+const TEST_DB = './assets/chinook.db'
+
+// Setup: Copy pristine database before tests run
+before(() => {
+  copyFileSync(ORIG_DB, TEST_DB)
+})
+
+// Cleanup: Remove test database after tests complete
+after(() => {
+  if (existsSync(TEST_DB)) {
+    unlinkSync(TEST_DB)
+  }
+})
 
 /**
  * in memory based database
