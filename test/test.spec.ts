@@ -1234,3 +1234,437 @@ test('Use db.each with two values in object in params', async () => {
   assert.strictEqual(names[0], 'Frank');
   await db.close();
 });
+
+// Tests for SQL statement validation
+
+test('db.run should throw error when SQL is empty string', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run(''),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.run should throw error when SQL is null', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run(null as any),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.run should throw error when SQL is undefined', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run(undefined as any),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.get should throw error when SQL is empty string', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.get(''),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.get should throw error when SQL is null', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.get(null as any),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.get should throw error when SQL is undefined', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.get(undefined as any),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.all should throw error when SQL is empty string', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.all(''),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.all should throw error when SQL is null', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.all(null as any),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.all should throw error when SQL is undefined', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.all(undefined as any),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.each should throw error when SQL is empty string', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.each('', (row: any) => {}),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.each should throw error when SQL is null', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.each(null as any, (row: any) => {}),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+test('db.each should throw error when SQL is undefined', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.each(undefined as any, (row: any) => {}),
+    {
+      name: 'Error',
+      message: 'SQL statement is required'
+    }
+  );
+  await db.close();
+});
+
+// Tests for SQL syntax errors
+
+test('db.run should throw error for SQL syntax error', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run('SELCT * FROM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR'
+    }
+  );
+  await db.close();
+});
+
+test('db.run should throw error for malformed SQL', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run('SELECT * FORM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /syntax error/
+    }
+  );
+  await db.close();
+});
+
+test('db.get should throw error for SQL syntax error', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.get('SELCT * FROM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR'
+    }
+  );
+  await db.close();
+});
+
+test('db.get should throw error for malformed SQL', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.get('SELECT * FORM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /syntax error/
+    }
+  );
+  await db.close();
+});
+
+test('db.all should throw error for SQL syntax error', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.all('SELCT * FROM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR'
+    }
+  );
+  await db.close();
+});
+
+test('db.all should throw error for malformed SQL', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.all('SELECT * FORM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /syntax error/
+    }
+  );
+  await db.close();
+});
+
+test('db.each should throw error for SQL syntax error', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.each('SELCT * FROM customers', (row: any) => {}),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR'
+    }
+  );
+  await db.close();
+});
+
+test('db.each should throw error for malformed SQL', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.each('SELECT * FORM customers', (row: any) => {}),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /syntax error/
+    }
+  );
+  await db.close();
+});
+
+// Tests for invalid table references
+
+test('db.run should throw error for nonexistent table', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run('SELECT * FROM nonexistent_table'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such table/
+    }
+  );
+  await db.close();
+});
+
+test('db.run should throw error when inserting into nonexistent table', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run('INSERT INTO fake_table (id, name) VALUES (1, "test")'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such table/
+    }
+  );
+  await db.close();
+});
+
+test('db.get should throw error for nonexistent table', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.get('SELECT * FROM nonexistent_table'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such table/
+    }
+  );
+  await db.close();
+});
+
+test('db.all should throw error for nonexistent table', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.all('SELECT * FROM nonexistent_table'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such table/
+    }
+  );
+  await db.close();
+});
+
+test('db.each should throw error for nonexistent table', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.each('SELECT * FROM nonexistent_table', (row: any) => {}),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such table/
+    }
+  );
+  await db.close();
+});
+
+// Tests for invalid column references
+
+test('db.run should throw error for nonexistent column in SELECT', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run('SELECT nonexistent_column FROM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});
+
+test('db.run should throw error for nonexistent column in UPDATE', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run('UPDATE customers SET nonexistent_column = "test" WHERE CustomerId = 1'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});
+
+test('db.run should throw error for nonexistent column in WHERE clause', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.run('UPDATE customers SET FirstName = "test" WHERE nonexistent_column = 1'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});
+
+test('db.get should throw error for nonexistent column', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.get('SELECT nonexistent_column FROM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});
+
+test('db.get should throw error for nonexistent column in WHERE clause', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.get('SELECT FirstName FROM customers WHERE nonexistent_column = 1'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});
+
+test('db.all should throw error for nonexistent column', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.all('SELECT nonexistent_column FROM customers'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});
+
+test('db.all should throw error for nonexistent column in WHERE clause', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.all('SELECT FirstName FROM customers WHERE nonexistent_column = 1'),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});
+
+test('db.each should throw error for nonexistent column', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.each('SELECT nonexistent_column FROM customers', (row: any) => {}),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});
+
+test('db.each should throw error for nonexistent column in WHERE clause', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  await assert.rejects(
+    async () => await db.each('SELECT FirstName FROM customers WHERE nonexistent_column = 1', (row: any) => {}),
+    {
+      name: 'Error',
+      code: 'ERR_SQLITE_ERROR',
+      message: /no such column/
+    }
+  );
+  await db.close();
+});

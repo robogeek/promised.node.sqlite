@@ -218,6 +218,18 @@ export class AsyncDatabase {
     }
 
     /**
+     * Validates that a SQL statement is provided.
+     * 
+     * @param sql - The SQL statement to validate
+     * @throws Error if SQL is null, undefined, or empty string
+     */
+    #validateSQL(sql: string): void {
+        if (sql == null || sql === '') {
+            throw new Error('SQL statement is required');
+        }
+    }
+
+    /**
      * Normalize parameters for binding
      * If single object/array, use as-is for named/positional parameters
      * If multiple args, use as positional array
@@ -282,6 +294,7 @@ export class AsyncDatabase {
         return new Promise((resolve, reject) => {
             setImmediate(async () => {
                 try {
+                    this.#validateSQL(sql);
                     const asyncStmt = this.#getStatement(sql);
                     // console.log(`run ${sql} params=`, params);
                     const p = this.#normalizeParams(params);
@@ -333,6 +346,7 @@ export class AsyncDatabase {
         return new Promise((resolve, reject) => {
             setImmediate(() => {
                 try {
+                    this.#validateSQL(sql);
                     const asyncStmt = this.#getStatement(sql);
                     const p = this.#normalizeParams(params);
                     let result;
@@ -373,6 +387,7 @@ export class AsyncDatabase {
         return new Promise((resolve, reject) => {
             setImmediate(() => {
                 try {
+                    this.#validateSQL(sql);
                     const asyncStmt = this.#getStatement(sql);
                     const p = this.#normalizeParams(params);
                     let result;
@@ -438,6 +453,7 @@ export class AsyncDatabase {
         return new Promise((resolve, reject) => {
             setImmediate(async () => {
                 try {
+                    this.#validateSQL(sql);
                     const asyncStmt = this.#getStatement(sql);
                     const p = this.#normalizeParams(_params);
                     const count = await asyncStmt.each(p, callback);
