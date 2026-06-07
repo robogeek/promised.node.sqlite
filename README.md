@@ -1,7 +1,12 @@
 # Promised node:sqlite
 
 ## Introduction
+
 You can use async/await for node:sqlite.
+
+Inspired by, derived from, promised.sqlite which promised: You can use async/await for sqlite3.
+
+### History
 
 This package is a fork of [promised.sqlite](https://www.npmjs.com/package/promised.sqlite).  Rationale:
 
@@ -55,7 +60,7 @@ import {
 // open the database - with promised.sqlite API
 const db = await open('./assets/chinook.db', OPEN_READWRITE);
 // open the database - with the new AsyncDatabase API
-const db = await AsyncDatabase.open('./assets/chinook.db', OPEN_READWRITE);
+const db = await AsyncDatabase.open('./assets/chinook.db');
 console.log('Connected to the database.')
 
 const row = await db.get(`SELECT PlaylistId as id,
@@ -94,6 +99,7 @@ await db.close()
 ```
 
 ### Query the first row in the result set
+
 ```js
 import {
   open,
@@ -284,6 +290,8 @@ await db.close()
 
 This package exports a superset of the promised.sqlite API.
 
+That package offered this way of opening an SQLITE3 database:
+
 ```js
 export const OPEN_READONLY = 1;
 export const OPEN_READWRITE = 2;
@@ -299,7 +307,7 @@ export function open(filename: string, mode?: number): Promise<AsyncDatabase>
 
 The top-level `open` function in promised.sqlite package uses these constants.  Of these, only the `OPEN_READONLY` mode is recognized.  These API elements are present for compatibility with promised.sqlite.
 
-The implementation simply calls `AsyncDatabase.open` with an _options_ object similar to what's used in the `node:sqlite` DatabaseSync class.  This route, using the DatabaseOptions object, is more powerful than the promised.sqlite API.
+The recommended way of opening an SQLITE3 database is now to call `AsyncDatabase.open` with an _options_ object similar to what's used in the `node:sqlite` DatabaseSync class.  This route, using the DatabaseOptions object, is more powerful than the promised.sqlite API.
 
 ```js
 export interface DatabaseOptions {
@@ -336,6 +344,8 @@ export class AsyncDatabase {
       options?: DatabaseOptions
   ): Promise<AsyncDatabase> 
   // ...
+  async close(): Promise<void>
+  // ...
 }
 ```
 
@@ -361,7 +371,7 @@ export class AsyncDatabase {
   async all<T = any>(sql: string, ...params: unknown[]): Promise<T[]>
   async each<T = any>(
         sql: string,
-        params: any,
+        ...params: any[],
         callback: (row: T) => void
   ): Promise<number>
   async exec(sql: string): Promise<void>
@@ -370,6 +380,28 @@ export class AsyncDatabase {
   // ...
 }
 ```
+
+The _params_ argument in these functions support these three modes:
+
+```js
+// Directly in the function arguments.
+db.run("UPDATE tbl SET name = ? WHERE id = ?", "bar", 2);
+// As an array.
+db.run("UPDATE tbl SET name = ? WHERE id = ?", [ "bar", 2 ]);
+// As an object with named parameters.
+db.run("UPDATE tbl SET name = $name WHERE id = $id", {
+  $id: 2,
+  $name: "bar"
+});
+```
+
+For the `each` method a little subterfuge is used, because TypeScript does not allow further parameters following a `...param` parameter.
+
+* The last item in `...params` is inspected
+* If it is not a `function` then an error is thrown.  The function is assumed to be the callback function.
+* The rest of `...params` are taken as the actual parameters.
+
+Under the cover, each AsyncDatabase function generates an AsyncStatement object for execution.  These objects are automatically cached and reused.
 
 As with AsyncDatabase being a thin wrapper over DatabaseSync, there is an AsyncStatement class which is a thin wrapper over StatementSync.
 
@@ -393,6 +425,10 @@ export class AsyncStatement {
   ): Promise<number>
 }
 ```
+
+Except for `each` these directly call the corresponding StatementSync method.
+
+StatementSync does not have an `each` method, but an `iterate` method.  The `AsyncStatement#each` method does a similar subterfuge as described earlier to separate out the callback function, and to throw an error if no callback is supplied.  It then calls `StatementSync#iterate` and runs a `for` loop using the supplied iterator.
 
 ## Reference
 
