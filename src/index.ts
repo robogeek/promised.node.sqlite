@@ -439,10 +439,7 @@ export class AsyncDatabase {
             setImmediate(async () => {
                 try {
                     const asyncStmt = this.#getStatement(sql);
-                    const p = _params.length > 0 
-                        ? (
-                            _params.length === 1 ? _params[0] : _params)
-                        : undefined;
+                    const p = this.#normalizeParams(_params);
                     const count = await asyncStmt.each(p, callback);
                     resolve(count);
                 } catch (err) {
@@ -674,7 +671,14 @@ export class AsyncStatement {
                         p = this.#bindParams;
                     }
                     
-                    const result = p !== undefined ? this.#statement.get(p) : this.#statement.get();
+                    let result;
+                    if (typeof p === 'undefined') {
+                        result = this.#statement.get();
+                    } else if (Array.isArray(p)) {
+                        result = this.#statement.get(...p);
+                    } else {
+                        result = this.#statement.get(p);
+                    }
                     resolve(result as T | undefined);
                 } catch (err) {
                     reject(err);
@@ -711,9 +715,14 @@ export class AsyncStatement {
                         p = this.#bindParams;
                     }
                     
-                    const result = p !== undefined
-                        ? this.#statement.all(p)
-                        : this.#statement.all();
+                    let result;
+                    if (typeof p === 'undefined') {
+                        result = this.#statement.all();
+                    } else if (Array.isArray(p)) {
+                        result = this.#statement.all(...p);
+                    } else {
+                        result = this.#statement.all(p);
+                    }
                     resolve(result as T[]);
                 } catch (err) {
                     reject(err);
@@ -772,9 +781,14 @@ export class AsyncStatement {
                         ? (
                             _params.length === 1 ? _params[0] : _params)
                         : undefined;
-                    const iterator = p !== undefined 
-                        ? this.#statement.iterate(p)
-                        : this.#statement.iterate();
+                    let iterator;
+                    if (typeof p === 'undefined') {
+                        iterator = this.#statement.iterate();
+                    } else if (Array.isArray(p)) {
+                        iterator = this.#statement.iterate(...p);
+                    } else {
+                        iterator = this.#statement.iterate(p);
+                    }
                     for await (const row of iterator) {
                         callback(row as T);
                         count++;

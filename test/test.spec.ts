@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test'
 import assert from 'node:assert'
-import { copyFileSync, unlinkSync, existsSync } from 'node:fs'
+import { copyFileSync, unlinkSync, existsSync, chmodSync } from 'node:fs'
 import {
   open,
   OPEN_READWRITE,
@@ -14,6 +14,8 @@ const TEST_DB = './assets/chinook.db'
 // Setup: Copy pristine database before tests run
 before(() => {
   copyFileSync(ORIG_DB, TEST_DB)
+  // Ensure the copy is writable (copyFileSync preserves readonly permissions)
+  chmodSync(TEST_DB, 0o644)
 })
 
 // Cleanup: Remove test database after tests complete
@@ -546,7 +548,7 @@ test('Use db.run with two float/integer items in params', async () => {
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
   try {
-    await db.run('UPDATE tracks SET UnitPrice = ?, AlbumId = ?', 1.99, 20);
+    await db.run('UPDATE tracks SET UnitPrice = ?, AlbumId = ? WHERE TrackId = 23', 1.99, 20);
   } catch (e: any) {
     console.error(e.message);
     sawError = true;
@@ -561,7 +563,7 @@ test('Use db.run with two float integer array  in params', async () => {
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
   try {
-    await db.run('UPDATE tracks SET UnitPrice = ?, AlbumId = ?', [ 1.99, 20 ]);
+    await db.run('UPDATE tracks SET UnitPrice = ?, AlbumId = ? WHERE TrackId = 24', [ 1.99, 20 ]);
   } catch (e: any) {
     console.error(e.message);
     sawError = true;
@@ -576,7 +578,7 @@ test('Use db.run with two float integer object  in params', async () => {
   const db = await AsyncDatabase.open('./assets/chinook.db');
   let sawError = false;
   try {
-    await db.run('UPDATE tracks SET UnitPrice = $unitPrice, AlbumId = $albumId', {
+    await db.run('UPDATE tracks SET UnitPrice = $unitPrice, AlbumId = $albumId WHERE TrackId = 25', {
       $unitPrice: 1.99,
       $albumId: 20
     });
@@ -845,3 +847,390 @@ test('disk file based database', async () => {
   await db.close()
   // console.log('Close the database connection');
 })
+
+// Tests for db.get with different parameter styles
+
+test('Use db.get with single integer value in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const row = await db.get(`
+    SELECT PlaylistId as id, Name as name
+    FROM playlists
+    WHERE PlaylistId = ?
+  `, 1);
+  assert.strictEqual(row.id, 1);
+  assert.strictEqual(row.name, 'Music');
+  await db.close();
+});
+
+test('Use db.get with single integer in array in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const row = await db.get(`
+    SELECT PlaylistId as id, Name as name
+    FROM playlists
+    WHERE PlaylistId = ?
+  `, [1]);
+  assert.strictEqual(row.id, 1);
+  assert.strictEqual(row.name, 'Music');
+  await db.close();
+});
+
+test('Use db.get with single integer in object in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const row = await db.get(`
+    SELECT PlaylistId as id, Name as name
+    FROM playlists
+    WHERE PlaylistId = $id
+  `, { $id: 1 });
+  assert.strictEqual(row.id, 1);
+  assert.strictEqual(row.name, 'Music');
+  await db.close();
+});
+
+test('Use db.get with single string value in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const row = await db.get(`
+    SELECT PlaylistId as id, Name as name
+    FROM playlists
+    WHERE Name = ?
+  `, 'Music');
+  assert.strictEqual(row.id, 1);
+  assert.strictEqual(row.name, 'Music');
+  await db.close();
+});
+
+test('Use db.get with single string in array in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const row = await db.get(`
+    SELECT PlaylistId as id, Name as name
+    FROM playlists
+    WHERE Name = ?
+  `, ['Music']);
+  assert.strictEqual(row.id, 1);
+  assert.strictEqual(row.name, 'Music');
+  await db.close();
+});
+
+test('Use db.get with single string in object in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const row = await db.get(`
+    SELECT PlaylistId as id, Name as name
+    FROM playlists
+    WHERE Name = $name
+  `, { $name: 'Music' });
+  assert.strictEqual(row.id, 1);
+  assert.strictEqual(row.name, 'Music');
+  await db.close();
+});
+
+test('Use db.get with two values as separate params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const row = await db.get(`
+    SELECT CustomerId as id, FirstName, LastName
+    FROM customers
+    WHERE Country = ? AND City = ?
+  `, 'USA', 'Boston');
+  assert.strictEqual(row.FirstName, 'John');
+  assert.strictEqual(row.LastName, 'Gordon');
+  await db.close();
+});
+
+test('Use db.get with two values in array in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const row = await db.get(`
+    SELECT CustomerId as id, FirstName, LastName
+    FROM customers
+    WHERE Country = ? AND City = ?
+  `, ['USA', 'Boston']);
+  assert.strictEqual(row.FirstName, 'John');
+  assert.strictEqual(row.LastName, 'Gordon');
+  await db.close();
+});
+
+test('Use db.get with two values in object in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const row = await db.get(`
+    SELECT CustomerId as id, FirstName, LastName
+    FROM customers
+    WHERE Country = $country AND City = $city
+  `, { $country: 'USA', $city: 'Boston' });
+  assert.strictEqual(row.FirstName, 'John');
+  assert.strictEqual(row.LastName, 'Gordon');
+  await db.close();
+});
+
+// Tests for db.all with different parameter styles
+
+test('Use db.all with single integer value in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const rows = await db.all(`
+    SELECT TrackId, Name
+    FROM tracks
+    WHERE AlbumId = ?
+    ORDER BY TrackId
+    LIMIT 3
+  `, 3);
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].Name, 'Fast As a Shark');
+  await db.close();
+});
+
+test('Use db.all with single integer in array in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const rows = await db.all(`
+    SELECT TrackId, Name
+    FROM tracks
+    WHERE AlbumId = ?
+    ORDER BY TrackId
+    LIMIT 3
+  `, [3]);
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].Name, 'Fast As a Shark');
+  await db.close();
+});
+
+test('Use db.all with single integer in object in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const rows = await db.all(`
+    SELECT TrackId, Name
+    FROM tracks
+    WHERE AlbumId = $albumId
+    ORDER BY TrackId
+    LIMIT 3
+  `, { $albumId: 3 });
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].Name, 'Fast As a Shark');
+  await db.close();
+});
+
+test('Use db.all with single string value in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const rows = await db.all(`
+    SELECT CustomerId, FirstName, LastName
+    FROM customers
+    WHERE Country = ?
+    ORDER BY CustomerId
+    LIMIT 3
+  `, 'USA');
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].FirstName, 'Frank');
+  await db.close();
+});
+
+test('Use db.all with single string in array in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const rows = await db.all(`
+    SELECT CustomerId, FirstName, LastName
+    FROM customers
+    WHERE Country = ?
+    ORDER BY CustomerId
+    LIMIT 3
+  `, ['USA']);
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].FirstName, 'Frank');
+  await db.close();
+});
+
+test('Use db.all with single string in object in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const rows = await db.all(`
+    SELECT CustomerId, FirstName, LastName
+    FROM customers
+    WHERE Country = $country
+    ORDER BY CustomerId
+    LIMIT 3
+  `, { $country: 'USA' });
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].FirstName, 'Frank');
+  await db.close();
+});
+
+test('Use db.all with two values as separate params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const rows = await db.all(`
+    SELECT CustomerId, FirstName, LastName
+    FROM customers
+    WHERE Country = ? AND State = ?
+    ORDER BY CustomerId
+  `, 'USA', 'CA');
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].FirstName, 'Frank');
+  await db.close();
+});
+
+test('Use db.all with two values in array in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const rows = await db.all(`
+    SELECT CustomerId, FirstName, LastName
+    FROM customers
+    WHERE Country = ? AND State = ?
+    ORDER BY CustomerId
+  `, ['USA', 'CA']);
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].FirstName, 'Frank');
+  await db.close();
+});
+
+test('Use db.all with two values in object in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const rows = await db.all(`
+    SELECT CustomerId, FirstName, LastName
+    FROM customers
+    WHERE Country = $country AND State = $state
+    ORDER BY CustomerId
+  `, { $country: 'USA', $state: 'CA' });
+  assert.strictEqual(rows.length, 3);
+  assert.strictEqual(rows[0].FirstName, 'Frank');
+  await db.close();
+});
+
+// Tests for db.each with different parameter styles
+
+test('Use db.each with single integer value in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const names: string[] = [];
+  const count = await db.each(`
+    SELECT TrackId, Name
+    FROM tracks
+    WHERE AlbumId = ?
+    ORDER BY TrackId
+    LIMIT 3
+  `, 3, (row: any) => {
+    names.push(row.Name);
+  });
+  assert.strictEqual(count, 3);
+  assert.strictEqual(names[0], 'Fast As a Shark');
+  await db.close();
+});
+
+test('Use db.each with single integer in array in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const names: string[] = [];
+  const count = await db.each(`
+    SELECT TrackId, Name
+    FROM tracks
+    WHERE AlbumId = ?
+    ORDER BY TrackId
+    LIMIT 3
+  `, [3], (row: any) => {
+    names.push(row.Name);
+  });
+  assert.strictEqual(count, 3);
+  assert.strictEqual(names[0], 'Fast As a Shark');
+  await db.close();
+});
+
+test('Use db.each with single integer in object in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const names: string[] = [];
+  const count = await db.each(`
+    SELECT TrackId, Name
+    FROM tracks
+    WHERE AlbumId = $albumId
+    ORDER BY TrackId
+    LIMIT 3
+  `, { $albumId: 3 }, (row: any) => {
+    names.push(row.Name);
+  });
+  assert.strictEqual(count, 3);
+  assert.strictEqual(names[0], 'Fast As a Shark');
+  await db.close();
+});
+
+test('Use db.each with single string value in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const names: string[] = [];
+  const count = await db.each(`
+    SELECT CustomerId, FirstName
+    FROM customers
+    WHERE Country = ?
+    ORDER BY CustomerId
+    LIMIT 3
+  `, 'USA', (row: any) => {
+    names.push(row.FirstName);
+  });
+  assert.strictEqual(count, 3);
+  assert.strictEqual(names[0], 'Frank');
+  await db.close();
+});
+
+test('Use db.each with single string in array in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const names: string[] = [];
+  const count = await db.each(`
+    SELECT CustomerId, FirstName
+    FROM customers
+    WHERE Country = ?
+    ORDER BY CustomerId
+    LIMIT 3
+  `, ['USA'], (row: any) => {
+    names.push(row.FirstName);
+  });
+  assert.strictEqual(count, 3);
+  assert.strictEqual(names[0], 'Frank');
+  await db.close();
+});
+
+test('Use db.each with single string in object in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const names: string[] = [];
+  const count = await db.each(`
+    SELECT CustomerId, FirstName
+    FROM customers
+    WHERE Country = $country
+    ORDER BY CustomerId
+    LIMIT 3
+  `, { $country: 'USA' }, (row: any) => {
+    names.push(row.FirstName);
+  });
+  assert.strictEqual(count, 3);
+  assert.strictEqual(names[0], 'Frank');
+  await db.close();
+});
+
+test('Use db.each with two values as separate params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const names: string[] = [];
+  const count = await db.each(`
+    SELECT CustomerId, FirstName
+    FROM customers
+    WHERE Country = ? AND State = ?
+    ORDER BY CustomerId
+  `, 'USA', 'CA', (row: any) => {
+    names.push(row.FirstName);
+  });
+  assert.strictEqual(count, 3);
+  assert.strictEqual(names[0], 'Frank');
+  await db.close();
+});
+
+test('Use db.each with two values in array in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const names: string[] = [];
+  const count = await db.each(`
+    SELECT CustomerId, FirstName
+    FROM customers
+    WHERE Country = ? AND State = ?
+    ORDER BY CustomerId
+  `, ['USA', 'CA'], (row: any) => {
+    names.push(row.FirstName);
+  });
+  assert.strictEqual(count, 3);
+  assert.strictEqual(names[0], 'Frank');
+  await db.close();
+});
+
+test('Use db.each with two values in object in params', async () => {
+  const db = await AsyncDatabase.open('./assets/chinook.db');
+  const names: string[] = [];
+  const count = await db.each(`
+    SELECT CustomerId, FirstName
+    FROM customers
+    WHERE Country = $country AND State = $state
+    ORDER BY CustomerId
+  `, { $country: 'USA', $state: 'CA' }, (row: any) => {
+    names.push(row.FirstName);
+  });
+  assert.strictEqual(count, 3);
+  assert.strictEqual(names[0], 'Frank');
+  await db.close();
+});
