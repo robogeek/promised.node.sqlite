@@ -1,6 +1,6 @@
 {
   "name": "promised.node.sqlite",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "You can use async/await for node:sqlite",
   "main": "dist/index.js",
