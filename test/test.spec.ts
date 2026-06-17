@@ -2201,6 +2201,65 @@ test('run should treat undefined as NULL', async () => {
   await db.close();
 });
 
+test('run should treat boolean as 1/0 (positional args)', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, flag INTEGER)');
+
+  await db.run('INSERT INTO test VALUES (?, ?)', 1, true);
+  await db.run('INSERT INTO test VALUES (?, ?)', 2, false);
+
+  const t = await db.get('SELECT flag FROM test WHERE id = ?', 1);
+  const f = await db.get('SELECT flag FROM test WHERE id = ?', 2);
+  assert.strictEqual(t.flag, 1);
+  assert.strictEqual(f.flag, 0);
+
+  await db.close();
+});
+
+test('run should treat boolean as 1/0 (array params)', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, flag INTEGER)');
+
+  await db.run('INSERT INTO test VALUES (?, ?)', [ 1, true ]);
+  await db.run('INSERT INTO test VALUES (?, ?)', [ 2, false ]);
+
+  const rows = await db.all('SELECT id, flag FROM test ORDER BY id');
+  assert.strictEqual(rows[0].flag, 1);
+  assert.strictEqual(rows[1].flag, 0);
+
+  await db.close();
+});
+
+test('run should treat boolean as 1/0 (named parameters)', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, flag INTEGER)');
+
+  await db.run('INSERT INTO test VALUES ($id, $flag)', { $id: 1, $flag: true });
+  await db.run('INSERT INTO test VALUES ($id, $flag)', { $id: 2, $flag: false });
+
+  const t = await db.get('SELECT flag FROM test WHERE id = $id', { $id: 1 });
+  const f = await db.get('SELECT flag FROM test WHERE id = $id', { $id: 2 });
+  assert.strictEqual(t.flag, 1);
+  assert.strictEqual(f.flag, 0);
+
+  await db.close();
+});
+
+test('prepared statement should treat boolean as 1/0', async () => {
+  const db = await AsyncDatabase.open(':memory:');
+  await db.run('CREATE TABLE test (id INTEGER, flag INTEGER)');
+
+  const stmt = await db.prepare('INSERT INTO test VALUES ($id, $flag)');
+  await stmt.run({ $id: 1, $flag: true });
+  await stmt.run({ $id: 2, $flag: false });
+
+  const rows = await db.all('SELECT id, flag FROM test ORDER BY id');
+  assert.strictEqual(rows[0].flag, 1);
+  assert.strictEqual(rows[1].flag, 0);
+
+  await db.close();
+});
+
 test('run should throw error for object value', async () => {
   const db = await AsyncDatabase.open(':memory:');
   await db.run('CREATE TABLE test (id INTEGER, name TEXT)');

@@ -148,11 +148,31 @@ export class AsyncDatabase {
         }
     }
     /**
+     * Coerce a single value into a form node:sqlite can bind.
+     *
+     * node:sqlite is stricter than the old sqlite3 package:
+     * - it rejects `undefined` (converted here to `null`)
+     * - it rejects JavaScript booleans (converted here to 1/0,
+     *   matching how sqlite3 stored booleans in INTEGER columns)
+     *
+     * All other values are passed through unchanged.
+     */
+    static #coerceValue(value) {
+        if (value === undefined)
+            return null;
+        if (value === true)
+            return 1;
+        if (value === false)
+            return 0;
+        return value;
+    }
+    /**
      * Normalize parameters for binding
      * If single object/array, use as-is for named/positional parameters
      * If multiple args, use as positional array
      *
-     * Converts undefined values to null as node:sqlite doesn't accept undefined
+     * Converts undefined values to null, and booleans to 1/0, as
+     * node:sqlite does not accept either.
      */
     #normalizeParams(params) {
         //  fn(param1, param2, param3)  --- becomes ---|
@@ -167,21 +187,22 @@ export class AsyncDatabase {
         }
         // console.log(`normalizeParams`, params);
         const normalized = params.length === 1 ? params[0] : params;
-        // Convert undefined to null for node:sqlite compatibility
+        // Convert undefined -> null and boolean -> 1/0
+        // for node:sqlite compatibility
         if (typeof normalized === 'object' && normalized !== null) {
             if (Array.isArray(normalized)) {
-                return normalized.map(v => v === undefined ? null : v);
+                return normalized.map(v => AsyncDatabase.#coerceValue(v));
             }
             else {
                 const result = {};
                 for (const [key, value] of Object.entries(normalized)) {
-                    result[key] = value === undefined ? null : value;
+                    result[key] = AsyncDatabase.#coerceValue(value);
                 }
                 return result;
             }
         }
         // console.log(`normalizeParams normalized`, normalized);
-        return [normalized];
+        return [AsyncDatabase.#coerceValue(normalized)];
     }
     /**
      * Runs the SQL query with the specified parameters.
@@ -466,6 +487,40 @@ export class AsyncStatement {
         return this.#statement;
     }
     /**
+     * Coerce computed params into a form node:sqlite can bind.
+     *
+     * node:sqlite rejects `undefined` (converted to `null`) and
+     * JavaScript booleans (converted to 1/0).  Applies to both the
+     * named-parameter object form and the positional array form.
+     * Other values, and `undefined` (meaning "no params"), pass
+     * through unchanged.
+     */
+    static #coerceParams(p) {
+        const coerce = (value) => {
+            if (value === undefined)
+                return null;
+            if (value === true)
+                return 1;
+            if (value === false)
+                return 0;
+            return value;
+        };
+        if (typeof p === 'undefined' || p === null) {
+            return p;
+        }
+        if (Array.isArray(p)) {
+            return p.map(coerce);
+        }
+        if (typeof p === 'object') {
+            const result = {};
+            for (const [key, value] of Object.entries(p)) {
+                result[key] = coerce(value);
+            }
+            return result;
+        }
+        return coerce(p);
+    }
+    /**
      * Binds parameters to the prepared statement.
      * Note: In node:sqlite, binding happens automatically on run/get/all,
      * so this method just stores the params for later use.
@@ -541,6 +596,7 @@ export class AsyncStatement {
                     else {
                         p = this.#bindParams;
                     }
+                    p = AsyncStatement.#coerceParams(p);
                     // console.log(`run STATEMENT`, p);
                     let result;
                     if (typeof p === 'undefined') {
@@ -595,6 +651,7 @@ export class AsyncStatement {
                     else {
                         p = this.#bindParams;
                     }
+                    p = AsyncStatement.#coerceParams(p);
                     let result;
                     if (typeof p === 'undefined') {
                         result = this.#statement.get();
@@ -641,6 +698,7 @@ export class AsyncStatement {
                     else {
                         p = this.#bindParams;
                     }
+                    p = AsyncStatement.#coerceParams(p);
                     let result;
                     if (typeof p === 'undefined') {
                         result = this.#statement.all();
@@ -702,9 +760,9 @@ export class AsyncStatement {
             setImmediate(async () => {
                 try {
                     let count = 0;
-                    const p = _params.length > 0
+                    const p = AsyncStatement.#coerceParams(_params.length > 0
                         ? (_params.length === 1 ? _params[0] : _params)
-                        : undefined;
+                        : undefined);
                     let iterator;
                     if (typeof p === 'undefined') {
                         iterator = this.#statement.iterate();
